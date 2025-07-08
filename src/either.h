@@ -3,6 +3,8 @@
 
 #include <type_traits>
 
+// From: https://godbolt.org/g/5f6mT9
+
 template<class L>
 struct Left
 {

@@ -1,9 +1,14 @@
 #include "process_audio.h"
+#include "either.h"
+#include <algorithm>
+#include <limits>
+#include <type_traits>
 
 namespace asf
 {
 
-  AudioFormat ProcessAudio::getAudioFormat()
+  template<class T>
+  AudioFormat ProcessAudio<T>::getAudioFormat()
   {
     if (fileData.size() < 4)
       return AudioFormat::Error;
@@ -16,7 +21,8 @@ namespace asf
       return AudioFormat::Unsupported;
   }
 
-  int32_t ProcessAudio::convertFourBytesToInt32(int startIdx, Endianness endianness)
+  template<class T>
+  int32_t ProcessAudio<T>::convertFourBytesToInt32(int startIdx, Endianness endianness)
   {
     if (fileData.size() >= startIdx + 4) {
       int32_t res;
@@ -39,7 +45,8 @@ namespace asf
     }
   }
 
-  int16_t ProcessAudio::convertTwoBytesToInt16(int startIdx, Endianness endianness)
+  template<class T>
+  int16_t ProcessAudio<T>::convertTwoBytesToInt16(int startIdx, Endianness endianness)
   {
     int16_t res;
 
@@ -51,7 +58,8 @@ namespace asf
     return res;
   }
 
-  int ProcessAudio::getIndexOfChunk(const std::string &ckID, int startIdx, Endianness endianness)
+  template<class T>
+  int ProcessAudio<T>::getIndexOfChunk(const std::string &ckID, int startIdx, Endianness endianness)
   {
     constexpr int reqLength = 4;
 
@@ -85,69 +93,142 @@ namespace asf
     return -1;
   }
 
-  bool ProcessAudio::loadWaveFile()
+  template<class T>
+  void ProcessAudio<T>::clearAudioBuffer()
   {
-    // ============= HEADER CHUNK ==============
-    std::string headerChunkID (fileData.begin(), fileData.begin() + 4);
-    int32_t headerChunkSize = convertFourBytesToInt32(4);
-    std::string fileTypeHeader (fileData.begin() + 8, fileData.begin() + 12);
+    for (size_t i = 0; i < samples.size(); i++)
+      samples[i].clear();
+    samples.clear();
+  }
 
-    int idxOfFmtChunk = getIndexOfChunk("fmt ", 12);
-    int idxOfDataChunk = getIndexOfChunk("data", 12);
+  template<class T>
+  Either<WaveHeaderChunk, std::string> ProcessAudio<T>::decodeHeaderChunk()
+  {
+    WaveHeaderChunk headerChunk {};
+    
+    headerChunk.ckID = { fileData.begin(), fileData.begin() + 4 };
+    headerChunk.ckSize = convertFourBytesToInt32(4);
+    headerChunk.fileTypeHeader = { fileData.begin() + 8, fileData.begin() + 12 };
 
-    if (idxOfFmtChunk == -1 || idxOfDataChunk == -1 || headerChunkID != "RIFF" || fileTypeHeader != "WAVE") {
+    return left(headerChunk);
+  }
+
+  template<class T>
+  Either<WaveFmtChunk, std::string> ProcessAudio<T>::decodeFmtChunk()
+  {
+    WaveFmtChunk fmtChunk {};
+
+    fmtChunk.index = getIndexOfChunk("fmt ", 12);
+    int f = fmtChunk.index;
+    
+    fmtChunk.ckID = { fileData.begin() + f, fileData.begin() + f + 4 };
+    fmtChunk.ckSize = convertFourBytesToInt32(f + 4);
+    fmtChunk.tag = convertTwoBytesToInt16(f + 8);
+    fmtChunk.nChannels = convertTwoBytesToInt16(f + 10);
+    fmtChunk.sampleRate = convertFourBytesToInt32(f + 12);
+    fmtChunk.nAvgBytesPerSec = convertFourBytesToInt32(f + 16);
+    fmtChunk.nBlockAlign = convertTwoBytesToInt16(f + 20);
+    fmtChunk.bitDepth = convertTwoBytesToInt16(f + 22);
+
+    if (fmtChunk.tag != WaveFormat::PCM &&
+        fmtChunk.tag != WaveFormat::IEEE_FLOAT &&
+        fmtChunk.tag != WaveFormat::ALAW &&
+        fmtChunk.tag != WaveFormat::MULAW &&
+        fmtChunk.tag != WaveFormat::EXTENSIBLE
+    ) {
+      std::string msg { "That wave format is not supported or not a wave format at all.\n" };
+      return right(msg);
+    }
+
+    if (fmtChunk.nChannels < 1 || fmtChunk.nChannels > 128) {
+      std::string msg { "Number of channels is just too high or too low, who knows.\n" };
+      return right(msg);
+    }
+
+    if (fmtChunk.nAvgBytesPerSec != static_cast<uint32_t>((fmtChunk.nChannels * fmtChunk.sampleRate * fmtChunk.bitDepth) / 8)) {
+      std::string msg { "The calculation is not mathing bruh, it ain't right.\n" };
+      return right(msg);
+    }
+
+    if (fmtChunk.bitDepth != 8 && fmtChunk.bitDepth != 16 && fmtChunk.bitDepth != 24 && fmtChunk.bitDepth != 32) {
+      std::string msg { "Somehow this bit depth is not valid, HOW!?\n" };
+      return right(msg);
+    }
+
+    return left(fmtChunk);
+  }
+
+  template<class T>
+  Either<WaveDataChunk, std::string> ProcessAudio<T>::decodeDataChunk()
+  {
+    WaveDataChunk dataChunk {};
+
+    dataChunk.index = getIndexOfChunk("data", 12);
+    int d = dataChunk.index;
+    
+    dataChunk.ckID = { fileData.begin() + d, fileData.begin() + d + 4 };
+    dataChunk.ckSize = convertFourBytesToInt32(d + 4);
+
+    return left(dataChunk);  
+  }
+
+  template<class T>  
+  bool ProcessAudio<T>::decodeSamples(WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
+  {
+    dataChunk.nSamples = dataChunk.ckSize / (fmtChunk.nChannels * fmtChunk.bitDepth / 8);
+    uint16_t numBytesPerSample = fmtChunk.bitDepth / 8;
+    int samplesStartIdx = dataChunk.index + 8;
+
+    clearAudioBuffer();
+    samples.resize(fmtChunk.nChannels);
+
+    for (int i = 0; i < dataChunk.nSamples; i++) {
+      for (int channel = 0; channel < fmtChunk.nChannels; channel++) {
+
+        int sampleIndex = samplesStartIdx + (fmtChunk.nBlockAlign * i) + channel * numBytesPerSample;
+
+        if ((sampleIndex + (fmtChunk.bitDepth / 8) - 1) >= fileData.size()) {
+          std::cerr << "There is somehow more samples than there are in the file data.\n";
+          return false;    
+        }
+
+        if (fmtChunk.bitDepth == 8) {
+          
+        }
+      }
+    }
+  }
+  
+  template<class T>
+  bool ProcessAudio<T>::loadWaveFile()
+  {
+
+    WaveHeaderChunk headerChunk = decodeHeaderChunk()
+      .leftMap([](auto hCk) { return hCk; });
+
+    WaveFmtChunk fmtChunk = decodeFmtChunk()
+      .leftMap([](auto fCk) { return fCk; })
+      .rightMap([](auto msg) { std::cerr << msg; return WaveFmtChunk{ .index = -1 }; })
+      .join();
+
+    WaveDataChunk dataChunk = decodeDataChunk()
+      .leftMap([](auto dCk) { return dCk; });
+
+    if (fmtChunk.index == -1 || dataChunk.index == -1 || headerChunk.ckID != "RIFF" || headerChunk.fileTypeHeader != "WAVE") {
       std::cerr << "This is not a valid .WAV file.\n";
       return false;
     }
 
-    // ========== FORMAT CHUNK ==================
-    int f = idxOfFmtChunk;
-    std::string fmtCkID (fileData.begin() + f, fileData.begin() + f + 4);
-    int32_t fmtCkSize = convertFourBytesToInt32(f + 4);
-    uint16_t fmtTag = convertTwoBytesToInt16(f + 8);
-    uint16_t nChannels = convertTwoBytesToInt16(f + 10);
-    uint32_t nSamplesPerSec = convertFourBytesToInt32(f + 12);
-    uint32_t nAvgBytesPerSec = convertFourBytesToInt32(f + 16);
-    uint16_t nBlockAlign = convertTwoBytesToInt16(f + 20);
-    uint16_t bitsPerSample = convertTwoBytesToInt16(f + 22);
+    sampleRate = fmtChunk.sampleRate;
+    bitDepth = fmtChunk.bitDepth;
 
-    if (fmtTag != WaveFormat::PCM &&
-        fmtTag != WaveFormat::IEEE_FLOAT &&
-        fmtTag != WaveFormat::ALAW &&
-        fmtTag != WaveFormat::MULAW &&
-        fmtTag != WaveFormat::EXTENSIBLE
-    ) {
-      std::cerr << "That wave format is not supported or not a wave format at all.\n";    
-      return false;
-    }
-
-    if (nChannels < 1 || nChannels > 128) {
-      std::cerr << "Number of channels is just too high or too low, who knows.\n";
-      return false;
-    }
-
-    if (nAvgBytesPerSec != static_cast<uint32_t>((nChannels * nSamplesPerSec * bitsPerSample) / 8)) {
-      std::cerr << "The calculation is not mathing bruh, it ain't right.\n";
-      return false;
-    }
-
-    if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
-      std::cerr << "Somehow this bit depth is not valid, HOW!?\n";
-      return false;
-    }
-
-    // ================ DATA CHUNK ===============
-    int d = idxOfDataChunk;
-    std::string dataCkID (fileData.begin() + d, fileData.begin() + d + 4);
-    int32_t dataCkSize = convertFourBytesToInt32(d + 4);
-
-    int nSamples = dataCkSize / (nChannels * bitsPerSample / 8);
-    int sampleStartIdx = idxOfDataChunk + 8;
+    decodeSamples(fmtChunk, dataChunk);
 
     return true;
   }
 
-  bool ProcessAudio::loadAudioFromFile(const std::string &fileName)
+  template<class T>
+  bool ProcessAudio<T>::loadAudioFromFile(const std::string &fileName)
   {
     std::ifstream file (fileName, std::ios_base::binary);
 
@@ -189,4 +270,170 @@ namespace asf
     return true;
   }
   
+
+  template<typename SignedType>
+  typename std::make_unsigned<SignedType>::type convertSignedToUnsigned(SignedType signedValue)
+  {
+    static_assert(std::is_signed<SignedType>::value, "The input to this function must be a signed value.");
+
+    typename std::make_unsigned<SignedType>::type unsignedValue = static_cast<typename std::make_unsigned<SignedType>::type>(1) + std::numeric_limits<SignedType>::max();
+
+    unsignedValue += signedValue;
+
+    return unsignedValue;
+  }
+
+  
+  template<class T>
+  T AudioSampleConverter<T>::signedByteToSample(int8_t sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+      return static_cast<T>(sample) / static_cast<T>(127.);
+    } else if constexpr (std::numeric_limits<T>::is_integer) {
+      if constexpr (std::is_signed_v<T>)
+        return static_cast<T>(sample);
+      else
+        return static_cast<T>(convertSignedToUnsigned<int8_t>(sample));
+    }
+  }
+
+  template<class T>
+  int8_t AudioSampleConverter<T>::sampleToSignedByte(T sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+      sample = clamp(sample, -1., 1.);
+      return static_cast<int8_t>(sample * (T)0x7F);
+    } else {
+      if constexpr (std::is_signed_v<T>)
+        return static_cast<int8_t>(clamp (sample, -128, 127));
+      else
+        return static_cast<int8_t>(clamp (sample, 0, 255) - 128);
+    }
+  }
+
+  template<class T>
+  T AudioSampleConverter<T>::unsignedByteToSample(uint8_t sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+      return static_cast<T>(sample - 128) / static_cast<T>(127.);
+    } else if (std::numeric_limits<T>::is_integer) {
+      if constexpr (std::is_unsigned_v<T>)
+        return static_cast<T>(sample);
+      else
+        return static_cast<T>(sample - 128);
+    }
+  }
+
+  template<class T>
+  uint8_t AudioSampleConverter<T>::sampleToUnsignedByte(T sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        sample = clamp (sample, -1., 1.);
+        sample = (sample + 1.) / 2.;
+        return static_cast<uint8_t> (1 + (sample * 254));
+    } else {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<uint8_t> (clamp (sample, -128, 127) + 128);
+        else
+            return static_cast<uint8_t> (clamp (sample, 0, 255));
+    }
+  }
+
+  template<class T>
+  T AudioSampleConverter<T>::sixteenBitIntToSample(int16_t sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        return static_cast<T> (sample) / static_cast<T> (32767.);
+    } else if constexpr (std::numeric_limits<T>::is_integer) {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<T> (sample);
+        else
+            return static_cast<T> (convertSignedToUnsigned<int16_t> (sample));
+    }
+  }
+
+  template<class T>
+  int16_t AudioSampleConverter<T>::sampleToSixteenBitInt(T sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        sample = clamp (sample, -1., 1.);
+        return static_cast<int16_t> (sample * 32767.);
+    } else {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<int16_t> (clamp (sample, SignedInt16_Min, SignedInt16_Max));
+        else
+            return static_cast<int16_t> (clamp (sample, UnsignedInt16_Min, UnsignedInt16_Max) + SignedInt16_Min);
+    }
+    
+  } 
+
+  template<class T>
+  T AudioSampleConverter<T>::twentyFourBitIntToSample(int32_t sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        return static_cast<T> (sample) / static_cast<T> (8388607.);
+    } else if (std::numeric_limits<T>::is_integer) {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<T> (clamp (sample, SignedInt24_Min, SignedInt24_Max));
+        else
+            return static_cast<T> (clamp (sample + 8388608, UnsignedInt24_Min, UnsignedInt24_Max));
+    }
+  }
+
+  template<class T>
+  int32_t AudioSampleConverter<T>::sampleToTwentyFourBitInt(T sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        sample = clamp (sample, -1., 1.);
+        return static_cast<int32_t> (sample * 8388607.);
+    } else {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<int32_t> (clamp (sample, SignedInt24_Min, SignedInt24_Max));
+        else
+            return static_cast<int32_t> (clamp (sample, UnsignedInt24_Min, UnsignedInt24_Max) + SignedInt24_Min);
+    }
+  }
+
+  template<class T>
+  T AudioSampleConverter<T>::thirtyTwoBitIntToSample(int32_t sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        return static_cast<T> (sample) / static_cast<T> (std::numeric_limits<int32_t>::max());
+    } else if (std::numeric_limits<T>::is_integer) {
+        if constexpr (std::is_signed_v<T>)
+			return static_cast<T> (sample);
+        else
+            return static_cast<T> (clamp (static_cast<T> (sample + 2147483648), 0, 4294967295));
+    }
+  }
+
+  template<class T>
+  int32_t AudioSampleConverter<T>::sampleToThirtyTwoBitInt(T sample)
+  {
+    if constexpr (std::is_floating_point<T>::value) {
+        if constexpr (std::is_same_v<T, float>) {
+            if (sample >= 1.f)
+                return std::numeric_limits<int32_t>::max();
+            else if (sample <= -1.f)
+                return std::numeric_limits<int32_t>::lowest() + 1;
+            else
+                return static_cast<int32_t> (sample * std::numeric_limits<int32_t>::max());
+        } else {
+            return static_cast<int32_t> (clamp (sample, -1., 1.) * std::numeric_limits<int32_t>::max());
+        }
+    } else {
+        if constexpr (std::is_signed_v<T>)
+            return static_cast<int32_t> (clamp (sample, -2147483648LL, 2147483647LL));
+        else
+            return static_cast<int32_t> (clamp (sample, 0, 4294967295) - 2147483648);
+    }
+  }
+
+  template<class T>
+  T AudioSampleConverter<T>::clamp(T value, T minValue, T maxValue)
+  {
+    value = std::min(value, maxValue);
+    value = std::max(value, minValue);
+    return value;
+  }
 }
