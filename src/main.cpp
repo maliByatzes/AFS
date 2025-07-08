@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstring>
 
 // Processing a WAVE file into memory
 
@@ -27,6 +28,88 @@ struct WaveFile
     std::uint32_t dataCkSize {}; // 41-44
 };*/
 
+enum class Endianness
+{
+    LittleEndian,
+    BigEndian
+};
+
+enum WaveFormat {
+    PCM = 0x0001,
+    IEEE_FLOAT = 0x0003,
+    ALAW = 0x0006,
+    MULAW = 0x0007,
+    EXTENSIBLE = 0xFFFE
+};
+
+int32_t fourBytesToInt(const std::vector<std::uint8_t> &data, int startIdx, Endianness endianness)
+{
+    if (data.size() >= startIdx + 4) {
+        int32_t res;
+
+        if (endianness == Endianness::LittleEndian)
+            res = (data[startIdx + 3] << 24) |
+                  (data[startIdx + 2] << 16) |
+                  (data[startIdx + 1] << 8) |
+                  data[startIdx];    
+        else
+            res = (data[startIdx] << 24) |
+                  (data[startIdx + 1] << 16) |
+                  (data[startIdx + 2] << 8) |
+                  data[startIdx + 3];
+
+        return res;
+    } else {
+        std::cerr << "The data is just not structured correctly!\n";
+        return 0;
+    }
+}
+
+int16_t twoBytesToInt(const std::vector<std::uint8_t> &data, int startIdx, Endianness endianness) {
+    int16_t res;
+
+    if (endianness == Endianness::LittleEndian)
+        res = (data[startIdx + 1] << 8) | (data[startIdx]);
+    else
+        res = (data[startIdx] << 8) | (data[startIdx + 1]);
+
+    return res;
+}
+
+int idxOfChunk(const std::vector<std::uint8_t> &data, const std::string &ckID, int startIdx, Endianness endianness)
+{
+    const int reqLength = 4;
+
+    if (ckID.size() != reqLength) {
+        std::cerr << "The chunk ID you passed is invalid bruh.\n";
+        return -1;
+    }
+
+    int idx = startIdx;
+    while (idx < data.size() - reqLength) {
+        if (std::memcmp(&data[idx], ckID.data(), reqLength) == 0) {
+            return idx;
+        }
+
+        idx += reqLength;
+
+        if ((idx + 4) >= data.size()) {
+            std::cerr << "It seems like we ran out of data to read.\n";
+            return -1;
+        }
+
+        // skip a whole chunk to the next chunk
+        int32_t ckSize = fourBytesToInt(data, idx, endianness);
+        if (ckSize > (data.size() - idx - reqLength) || (ckSize < 0)) {
+            std::cerr << "The chunk size is somehow invalid.\n";
+            return -1;
+        }
+
+        idx += (reqLength + ckSize);
+    }
+
+    return -1;
+}
 
 // One big dirty function for now
 
@@ -64,10 +147,68 @@ void processWaveFile(const std::string &fileName)
         return;
     }
 
-    std::cout << "fileData:\n";
-    for (const auto& v : fileData)
-        std::cout << v << " ";
-    std::cout << "\n"; 
+    // Header chunk
+    std::string headerChunkID (fileData.begin(), fileData.begin() + 4);
+    std::int32_t headerChunkSize = fourBytesToInt(fileData, 4, Endianness::LittleEndian);
+    std::string fileTypeHeader (fileData.begin() + 8, fileData.begin() + 12);
+
+    // std::cout << "headerChunkID: " << headerChunkID << ", headerChunkSize: " << headerChunkSize << ", fileTypeHeader: " << fileTypeHeader << "\n";
+
+    int idxOfFmtChunk = idxOfChunk(fileData, "fmt ", 12, Endianness::LittleEndian);
+    int idxOfDataChunk = idxOfChunk(fileData, "data", 12, Endianness::LittleEndian);
+
+    // std::cout << "index of fmt chunk: " << idxOfFmtChunk << "\n";
+    // std::cout << "index of data chunk: " << idxOfDataChunk << "\n";
+
+    // Check if required value for this to be a wave file are there
+    if (idxOfFmtChunk == -1 || idxOfDataChunk == -1 || headerChunkID != "RIFF" || fileTypeHeader != "WAVE") {
+        std::cerr << "This is not a valid .WAV file.\n";
+        return;
+    }
+
+    
+    // Format Chunk
+
+    std::string fmtCkID (fileData.begin() + idxOfFmtChunk, fileData.begin() + idxOfFmtChunk + 4);
+    std::int32_t fmtCkSize = fourBytesToInt(fileData, idxOfFmtChunk + 4, Endianness::LittleEndian);
+    std::uint16_t fmtTag = twoBytesToInt(fileData, idxOfFmtChunk + 8, Endianness::LittleEndian);
+    std::uint16_t nChannels = twoBytesToInt(fileData, idxOfFmtChunk + 10, Endianness::LittleEndian);
+    std::uint32_t nSamplesPerSec = fourBytesToInt(fileData, idxOfFmtChunk + 12, Endianness::LittleEndian);
+    std::uint32_t nAvgBytesPerSec = fourBytesToInt(fileData, idxOfFmtChunk + 16, Endianness::LittleEndian);
+    std::uint16_t nBlockAlign = twoBytesToInt(fileData, idxOfFmtChunk + 20, Endianness::LittleEndian);
+    std::uint16_t bitsPerSample = twoBytesToInt(fileData, idxOfFmtChunk + 22, Endianness::LittleEndian);
+
+    /*
+    std::cout << "fmtCkID: " << fmtCkID << ", fmtCkSize: " << fmtCkSize << ", fmtTag: " << fmtTag << ", nChannels: "
+    << nChannels << ", nSamplePerSec: " << nSamplesPerSec << ", nAvgBytesPerSec: " << nAvgBytesPerSec << ", nBlockAlign: "
+    << nBlockAlign << ", bitsPerSample: " << bitsPerSample << "\n";*/
+
+    // Checks to verify the consistency of the header chunk
+    
+    if (fmtTag != WaveFormat::PCM &&
+        fmtTag != WaveFormat::IEEE_FLOAT &&
+        fmtTag != WaveFormat::ALAW &&
+        fmtTag != WaveFormat::MULAW &&
+        fmtTag != WaveFormat::EXTENSIBLE
+    ) {
+        std::cerr << "That wave format is not supported or not a wave format at all.\n";
+        return;
+    }
+
+    if (nChannels < 1 || nChannels > 128) {
+        std::cerr << "Number of channels is just too high or too low, who knows.\n";
+        return;
+    }
+
+    if (nAvgBytesPerSec != static_cast<std::uint32_t>((nChannels * nSamplesPerSec * bitsPerSample) / 8)) {
+        std::cerr << "The calculation is not mathing bruh, it ain't right.\n";
+        return;    
+    }
+
+    if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
+        std::cerr << "Somehow this bit depth is not valid, HOW!?\n";
+        return;
+    }
 }
 
 
