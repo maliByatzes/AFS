@@ -146,12 +146,7 @@ namespace asf
     fmtChunk.nBlockAlign = convertTwoBytesToInt16(f + 20);
     fmtChunk.bitDepth = convertTwoBytesToInt16(f + 22);
 
-    if (fmtChunk.tag != WaveFormat::PCM &&
-        fmtChunk.tag != WaveFormat::IEEE_FLOAT &&
-        fmtChunk.tag != WaveFormat::ALAW &&
-        fmtChunk.tag != WaveFormat::MULAW &&
-        fmtChunk.tag != WaveFormat::EXTENSIBLE
-    ) {
+    if (fmtChunk.tag != WaveFormat::PCM) {
       std::string msg { "That wave format is not supported or not a wave format at all.\n" };
       return right(msg);
     }
@@ -262,7 +257,7 @@ namespace asf
       .join();
 
     if (fmtChunk.index == -1 || dataChunk.index == -1 || headerChunk.ckID != "RIFF" || headerChunk.fileTypeHeader != "WAVE") {
-      std::cerr << "This is not a valid .WAV file.\n";
+      // std::cerr << "This is not a valid .WAV file.\n";
       return false;
     }
 
