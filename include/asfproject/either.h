@@ -5,6 +5,8 @@
 
 // From: https://godbolt.org/g/5f6mT9
 
+// NOLINTBEGIN
+
 template<class L>
 struct Left
 {
@@ -90,5 +92,7 @@ struct Either
       return rightValue;
     }
 };
+
+// NOLINTEND
 
 #endif

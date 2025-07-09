@@ -1,14 +1,15 @@
-#include "process_audio.h"
+#include <asfproject/process_audio.h>
 
 using namespace asf;
 
-int main(int argc, char** argv) {    
+int main()
+{
 
-    ProcessAudio<float> pa {};
-    if (!pa.loadAudioFromFile("file_example_WAV_1MG.wav")) {
-      pa.~ProcessAudio<float>();
-      return 1;
-    }
-    
-    return 0;
+  ProcessAudio<float> processAudio{};
+  if (!processAudio.loadAudioFromFile("file_example_WAV_1MG.wav")) {
+    processAudio.~ProcessAudio<float>();
+    return 1;
+  }
+
+  return 0;
 }
