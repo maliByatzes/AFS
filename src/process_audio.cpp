@@ -1,11 +1,27 @@
 #include "process_audio.h"
-#include "either.h"
 #include <algorithm>
 #include <limits>
 #include <type_traits>
 
 namespace asf
 {
+
+  template<class T>
+  ProcessAudio<T>::ProcessAudio()
+  {
+    bitDepth = 16;
+    sampleRate = 44100;
+    samples.resize(1);
+    samples[0].resize(0);
+    fileFormat = AudioFormat::WAVE;
+  }
+
+  template<class T>
+  ProcessAudio<T>::ProcessAudio(const std::string &fileName)
+  : ProcessAudio<T>()
+  {
+    loadAudioFromFile(fileName);
+  }
 
   template<class T>
   AudioFormat ProcessAudio<T>::getAudioFormat()
@@ -173,7 +189,7 @@ namespace asf
   }
 
   template<class T>  
-  bool ProcessAudio<T>::decodeSamples(WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
+  bool ProcessAudio<T>::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
   {
     dataChunk.nSamples = dataChunk.ckSize / (fmtChunk.nChannels * fmtChunk.bitDepth / 8);
     uint16_t numBytesPerSample = fmtChunk.bitDepth / 8;
@@ -193,10 +209,37 @@ namespace asf
         }
 
         if (fmtChunk.bitDepth == 8) {
-          
+          T sample = AudioSampleConverter<T>::unsignedByteToSample(fileData[sampleIndex]);
+          samples[channel].push_back(sample);
+        }
+        else if (fmtChunk.bitDepth == 16) {
+          int16_t sampleAsInt = convertTwoBytesToInt16(sampleIndex);
+          T sample = AudioSampleConverter<T>::sixteenBitIntToSample(sampleAsInt);
+          samples[channel].push_back(sample);
+        }
+        else if (fmtChunk.bitDepth == 24) {
+          int32_t sampleAsInt;
+          sampleAsInt = (fileData[sampleIndex + 2] << 16) | (fileData[sampleIndex + 1] << 8) | fileData[sampleIndex];
+
+          if (sampleAsInt & 0x800000)
+            sampleAsInt = sampleAsInt | ~0xFFFFFF;
+
+          T sample = AudioSampleConverter<T>::twentyFourBitIntToSample(sampleAsInt);
+          samples[channel].push_back(sample);
+        }
+        else if (fmtChunk.bitDepth == 32) {
+          int32_t sampleAsInt = convertFourBytesToInt32(sampleIndex);
+          T sample = AudioSampleConverter<T>::thirtyTwoBitIntToSample(sampleAsInt);
+          samples[channel].push_back(sample);
+        }
+        else {
+          // Shouldn't execute 
+          return false;
         }
       }
     }
+
+    return true;
   }
   
   template<class T>
@@ -204,7 +247,9 @@ namespace asf
   {
 
     WaveHeaderChunk headerChunk = decodeHeaderChunk()
-      .leftMap([](auto hCk) { return hCk; });
+      .leftMap([](auto hCk) { return hCk; })
+      .rightMap([](auto msg) { std::cerr << msg; return WaveHeaderChunk{}; })
+      .join();
 
     WaveFmtChunk fmtChunk = decodeFmtChunk()
       .leftMap([](auto fCk) { return fCk; })
@@ -212,7 +257,9 @@ namespace asf
       .join();
 
     WaveDataChunk dataChunk = decodeDataChunk()
-      .leftMap([](auto dCk) { return dCk; });
+      .leftMap([](auto dCk) { return dCk; })
+      .rightMap([](auto msg) { std::cerr << msg; return WaveDataChunk { .index = -1 }; })
+      .join();
 
     if (fmtChunk.index == -1 || dataChunk.index == -1 || headerChunk.ckID != "RIFF" || headerChunk.fileTypeHeader != "WAVE") {
       std::cerr << "This is not a valid .WAV file.\n";
@@ -222,9 +269,7 @@ namespace asf
     sampleRate = fmtChunk.sampleRate;
     bitDepth = fmtChunk.bitDepth;
 
-    decodeSamples(fmtChunk, dataChunk);
-
-    return true;
+    return decodeSamples(fmtChunk, dataChunk);
   }
 
   template<class T>
@@ -436,4 +481,7 @@ namespace asf
     value = std::max(value, minValue);
     return value;
   }
+
+  // Explicit Template Instantiation
+  template class ProcessAudio<float>;
 }

@@ -70,15 +70,15 @@ namespace asf
   {
 
   private:
-    typedef std::vector<std::vector<T>> AudioBuffer;
+    using AudioBuffer = std::vector<std::vector<T>>;
     
     std::vector<uint8_t> fileData {};
     uint32_t sampleRate {};
     uint16_t bitDepth {};
     uint16_t duration {};
-    std::string fileFormat {};
+    AudioFormat fileFormat {};
     AudioBuffer samples; 
-
+    
     AudioFormat getAudioFormat();
     int32_t convertFourBytesToInt32(int, Endianness = Endianness::LittleEndian);
     int16_t convertTwoBytesToInt16(int, Endianness = Endianness::LittleEndian);
@@ -89,11 +89,14 @@ namespace asf
     Either<WaveFmtChunk, std::string> decodeFmtChunk();
     Either<WaveDataChunk, std::string> decodeDataChunk();
 
-    bool decodeSamples(WaveFmtChunk &, WaveDataChunk &);
+    bool decodeSamples(const WaveFmtChunk &, WaveDataChunk &);
     
     bool loadWaveFile();
 
   public:
+    ProcessAudio();
+    ProcessAudio(const std::string &);
+
     bool loadAudioFromFile(const std::string &);
   };
   
