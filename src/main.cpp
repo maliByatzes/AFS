@@ -6,7 +6,7 @@ int main()
 {
 
   ProcessAudio<float> processAudio{};
-  if (!processAudio.loadAudioFromFile("file_example_WAV_1MG.wav")) {
+  if (!processAudio.loadAudioFromFile("audio/file_example_WAV_1MG.wav")) {
     processAudio.~ProcessAudio<float>();
     return 1;
   }
