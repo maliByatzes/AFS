@@ -324,6 +324,45 @@ template<class T> bool ProcessAudio<T>::loadAudioFromFile(const std::string &fil
 }
 
 
+template<class T> int32_t ProcessAudio<T>::getSampleRate() const
+{
+  return sampleRate;
+}
+
+template<class T> int16_t ProcessAudio<T>::getNumOfChannels() const
+{
+  return int16_t(samples.size());
+}
+
+template<class T> bool ProcessAudio<T>::isMono() const
+{
+  return getNumOfChannels() == 1;
+}
+
+template<class T> bool ProcessAudio<T>::isStereo() const
+{
+  return getNumOfChannels() == 2;
+}
+
+template<class T> int16_t ProcessAudio<T>::getBitDepth() const
+{
+  return bitDepth;
+}
+
+template<class T> int ProcessAudio<T>::getNumSamplesPerChannel() const
+{
+  if (!samples.empty()) {
+    return int(samples[0].size());
+  } else {
+    return 0;
+  }
+}
+
+template<class T> double ProcessAudio<T>::getLengthInSeconds() const
+{
+  return double(getNumSamplesPerChannel()) / double(sampleRate);
+}
+
 template<typename SignedType> typename std::make_unsigned_t<SignedType> convertSignedToUnsigned(SignedType signedValue)
 {
   static_assert(std::is_signed_v<SignedType>, "The input to this function must be a signed value.");

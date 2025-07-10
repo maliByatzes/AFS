@@ -17,4 +17,6 @@ file(DOWNLOAD
      ${CPM_DOWNLOAD_LOCATION} EXPECTED_HASH SHA256=${CPM_HASH_SUM}
 )
 
+option(CPM_USE_LOCAL_PACKAGES "Try `find_package` before downloading dependencies" ON)
+
 include(${CPM_DOWNLOAD_LOCATION})

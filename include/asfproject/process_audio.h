@@ -61,7 +61,6 @@ private:
   int16_t bitDepth{};
   int16_t duration{};
   AudioFormat fileFormat{};
-  AudioBuffer samples;
 
   AudioFormat getAudioFormat();
   int32_t convertFourBytesToInt32(size_t, Endianness = Endianness::LittleEndian);
@@ -78,10 +77,20 @@ private:
   bool loadWaveFile();
 
 public:
+  AudioBuffer samples;
+
   ProcessAudio();
   explicit ProcessAudio(const std::string &);
 
   bool loadAudioFromFile(const std::string &);
+
+  [[nodiscard]] int32_t getSampleRate() const;
+  [[nodiscard]] int16_t getNumOfChannels() const;
+  [[nodiscard]] bool isMono() const;
+  [[nodiscard]] bool isStereo() const;
+  [[nodiscard]] int16_t getBitDepth() const;
+  [[nodiscard]] int getNumSamplesPerChannel() const;
+  [[nodiscard]] double getLengthInSeconds() const;
 };
 
 
