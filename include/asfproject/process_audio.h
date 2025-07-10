@@ -50,12 +50,10 @@ struct WaveDataChunk
 };
 
 
-template<class T> class ProcessAudio
+class ProcessAudio
 {
 
 private:
-  using AudioBuffer = std::vector<std::vector<T>>;
-
   std::vector<uint8_t> fileData;
   int32_t sampleRate{};
   int16_t bitDepth{};
@@ -66,7 +64,6 @@ private:
   int32_t convertFourBytesToInt32(size_t, Endianness = Endianness::LittleEndian);
   int16_t convertTwoBytesToInt16(size_t, Endianness = Endianness::LittleEndian);
   Either<size_t, std::string> getIndexOfChunk(const std::string &, size_t, Endianness = Endianness::LittleEndian);
-  void clearAudioBuffer();
 
   Either<WaveHeaderChunk, std::string> decodeHeaderChunk();
   Either<WaveFmtChunk, std::string> decodeFmtChunk();
@@ -77,7 +74,7 @@ private:
   bool loadWaveFile();
 
 public:
-  AudioBuffer samples;
+  std::vector<float> samples;
 
   ProcessAudio();
   explicit ProcessAudio(const std::string &);
@@ -93,37 +90,6 @@ public:
   [[nodiscard]] double getLengthInSeconds() const;
 };
 
-
-enum SampleLimit {
-  SignedInt16_Min = -32768,
-  SignedInt16_Max = 32767,
-  UnsignedInt16_Min = 0,
-  UnsignedInt16_Max = 65535,
-  SignedInt24_Min = -8388608,
-  SignedInt24_Max = 8388607,
-  UnsignedInt24_Min = 0,
-  UnsignedInt24_Max = 16777215
-};
-
-template<class T> struct AudioSampleConverter
-{
-  static T signedByteToSample(int8_t);
-  static int8_t sampleToSignedByte(T);
-
-  static T unsignedByteToSample(uint8_t);
-  static uint8_t sampleToUnsignedByte(T);
-
-  static T sixteenBitIntToSample(int16_t);
-  static int16_t sampleToSixteenBitInt(T);
-
-  static T twentyFourBitIntToSample(int32_t);
-  static int32_t sampleToTwentyFourBitInt(T);
-
-  static T thirtyTwoBitIntToSample(int32_t);
-  static int32_t sampleToThirtyTwoBitInt(T);
-
-  static T clamp(T, T, T);
-};
 };// namespace asf
 
 #endif

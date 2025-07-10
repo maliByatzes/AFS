@@ -1,29 +1,28 @@
-#include <asfproject/process_audio.h>
+#include <algorithm>
 #include <asfproject/either.h>
+#include <asfproject/process_audio.h>
+#include <cassert>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <ios>
 #include <iostream>
-#include <limits>
-#include <type_traits>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace asf {
 
-template<class T>
-ProcessAudio<T>::ProcessAudio()
+ProcessAudio::ProcessAudio()
   : sampleRate(DEFAULT_SAMPLE_RATE), bitDepth(DEFAULT_BIT_DEPTH), fileFormat(AudioFormat::WAVE)
 {
   samples.resize(1);
-  samples[0].resize(0);
 }
 
-template<class T> ProcessAudio<T>::ProcessAudio(const std::string &fileName) : ProcessAudio<T>()
-{
-  loadAudioFromFile(fileName);
-}
+ProcessAudio::ProcessAudio(const std::string &fileName) : ProcessAudio() { loadAudioFromFile(fileName); }
 
-template<class T> AudioFormat ProcessAudio<T>::getAudioFormat()
+AudioFormat ProcessAudio::getAudioFormat()
 {
   if (fileData.size() < 4) return AudioFormat::Error;// NOLINT
 
@@ -36,7 +35,7 @@ template<class T> AudioFormat ProcessAudio<T>::getAudioFormat()
   }
 }
 
-template<class T> int32_t ProcessAudio<T>::convertFourBytesToInt32(size_t startIdx, Endianness endianness)
+int32_t ProcessAudio::convertFourBytesToInt32(size_t startIdx, Endianness endianness)
 {
   if (fileData.size() >= startIdx + 4) {
     int32_t res{};
@@ -56,7 +55,7 @@ template<class T> int32_t ProcessAudio<T>::convertFourBytesToInt32(size_t startI
   }
 }
 
-template<class T> int16_t ProcessAudio<T>::convertTwoBytesToInt16(size_t startIdx, Endianness endianness)
+int16_t ProcessAudio::convertTwoBytesToInt16(size_t startIdx, Endianness endianness)
 {
   int16_t res{};
 
@@ -69,9 +68,9 @@ template<class T> int16_t ProcessAudio<T>::convertTwoBytesToInt16(size_t startId
   return res;
 }
 
-template<class T>
+
 Either<size_t, std::string>
-  ProcessAudio<T>::getIndexOfChunk(const std::string &ckID, size_t startIdx, [[maybe_unused]] Endianness _endianness)
+  ProcessAudio::getIndexOfChunk(const std::string &ckID, size_t startIdx, [[maybe_unused]] Endianness _endianness)
 {
   constexpr size_t reqLength = 4;
 
@@ -104,13 +103,7 @@ Either<size_t, std::string>
   return right(msg);
 }
 
-template<class T> void ProcessAudio<T>::clearAudioBuffer()
-{
-  for (size_t i = 0; i < samples.size(); i++) { samples[i].clear(); }
-  samples.clear();
-}
-
-template<class T> Either<WaveHeaderChunk, std::string> ProcessAudio<T>::decodeHeaderChunk()
+Either<WaveHeaderChunk, std::string> ProcessAudio::decodeHeaderChunk()
 {
   WaveHeaderChunk headerChunk{};
 
@@ -121,7 +114,7 @@ template<class T> Either<WaveHeaderChunk, std::string> ProcessAudio<T>::decodeHe
   return left(headerChunk);
 }
 
-template<class T> Either<WaveFmtChunk, std::string> ProcessAudio<T>::decodeFmtChunk()
+Either<WaveFmtChunk, std::string> ProcessAudio::decodeFmtChunk()
 {
   WaveFmtChunk fmtChunk{};
 
@@ -156,8 +149,7 @@ template<class T> Either<WaveFmtChunk, std::string> ProcessAudio<T>::decodeFmtCh
     return right(msg);
   }
 
-  if (fmtChunk.nAvgBytesPerSec
-      != (fmtChunk.nChannels * fmtChunk.sampleRate * fmtChunk.bitDepth) / 8) {// NOLINT
+  if (fmtChunk.nAvgBytesPerSec != (fmtChunk.nChannels * fmtChunk.sampleRate * fmtChunk.bitDepth) / 8) {// NOLINT
     const std::string msg{ "The calculation is not mathing bruh, it ain't right.\n" };
     return right(msg);
   }
@@ -171,7 +163,7 @@ template<class T> Either<WaveFmtChunk, std::string> ProcessAudio<T>::decodeFmtCh
   return left(fmtChunk);
 }
 
-template<class T> Either<WaveDataChunk, std::string> ProcessAudio<T>::decodeDataChunk()
+Either<WaveDataChunk, std::string> ProcessAudio::decodeDataChunk()
 {
   WaveDataChunk dataChunk{};
 
@@ -190,75 +182,74 @@ template<class T> Either<WaveDataChunk, std::string> ProcessAudio<T>::decodeData
   return left(dataChunk);
 }
 
-template<class T> bool ProcessAudio<T>::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
+float bytesToFloat(const std::span<const uint8_t> &bytes, Endianness endianness = Endianness::LittleEndian)
 {
-  dataChunk.nSamples = dataChunk.ckSize / (fmtChunk.nChannels * fmtChunk.bitDepth / 8);// NOLINT
-  int16_t numBytesPerSample = fmtChunk.bitDepth / int16_t(8);// NOLINT
-  size_t samplesStartIdx = dataChunk.index + 8;// NOLINT
+  float ans{};
 
-  clearAudioBuffer();
-  samples.resize(static_cast<size_t>(fmtChunk.nChannels));
-
-  for (size_t i = 0; i < size_t(dataChunk.nSamples); i++) {
-    for (size_t channel = 0; channel < size_t(fmtChunk.nChannels); channel++) {
-
-      const size_t sampleIndex = samplesStartIdx + (size_t(fmtChunk.nBlockAlign) * i) + (channel * size_t(numBytesPerSample));
-
-      if ((sampleIndex + (size_t(fmtChunk.bitDepth) / 8) - 1) >= fileData.size()) {// NOLINT
-        std::cerr << "There is somehow more samples than there are in the file data.\n";
-        return false;
-      }
-
-      if (fmtChunk.bitDepth == 8) {// NOLINT
-        T sample = AudioSampleConverter<T>::unsignedByteToSample(fileData[sampleIndex]);
-        samples[channel].push_back(sample);
-      } else if (fmtChunk.bitDepth == 16) {// NOLINT
-        const int16_t sampleAsInt = convertTwoBytesToInt16(sampleIndex);
-        T sample = AudioSampleConverter<T>::sixteenBitIntToSample(sampleAsInt);
-        samples[channel].push_back(sample);
-      } else if (fmtChunk.bitDepth == 24) {// NOLINT
-        int32_t sampleAsInt{};
-        sampleAsInt =
-          (fileData[sampleIndex + 2] << 16) | (fileData[sampleIndex + 1] << 8) | fileData[sampleIndex];// NOLINT
-
-        if (sampleAsInt & 0x800000) sampleAsInt = sampleAsInt | ~0xFFFFFF;// NOLINT
-
-        T sample = AudioSampleConverter<T>::twentyFourBitIntToSample(sampleAsInt);
-        samples[channel].push_back(sample);
-      } else if (fmtChunk.bitDepth == 32) {// NOLINT
-        const int32_t sampleAsInt = convertFourBytesToInt32(sampleIndex);
-        T sample = AudioSampleConverter<T>::thirtyTwoBitIntToSample(sampleAsInt);
-        samples[channel].push_back(sample);
-      } else {
-        // Shouldn't execute
-        return false;
-      }
+  if (endianness == Endianness::LittleEndian) {
+    if (bytes.size() == 1) {
+      ans = float(bytes[0] - 128);// NOLINT
+    } else if (bytes.size() == 2) {
+      ans = float((bytes[1] << 8) | bytes[0]);// NOLINT
+    } else if (bytes.size() == 3) {
+      ans = float(((bytes[2] >> 7) * (0xFF << 24)) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]);// NOLINT
+    } else if (bytes.size() == 4) {
+      ans = float((bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]);// NOLINT
+    } else {
+      assert(true && "Something is truly wrong if u hit this.");
     }
+  } else {
+    assert(true && "Not implemented!");
+  }
+
+  return ans;
+}
+
+bool ProcessAudio::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
+{
+  std::vector<uint8_t> data(size_t(dataChunk.ckSize));
+  size_t offset = dataChunk.index + 8;// NOLINT
+
+  if (offset + size_t(dataChunk.ckSize) <= fileData.size()) {// NOLINT
+    std::copy(fileData.begin() + int(offset), fileData.begin() + int(offset) + dataChunk.ckSize, data.begin());
+  }
+
+  int bytesPerSample = fmtChunk.bitDepth / 8;// NOLINT
+  auto samplesSize = size_t(dataChunk.ckSize / (bytesPerSample * fmtChunk.nChannels));
+
+  samples.clear();
+  samples.resize(samplesSize);
+  const float normFactor = 1.0F / float(std::pow(2, bitDepth - 1) - 1);
+
+  for (size_t i = 0; i < samples.size(); i++) {
+    const int offset2 = int(i) * bytesPerSample * fmtChunk.nChannels;
+    std::span<const uint8_t> sampleBytes(data.data() + offset2, size_t(bytesPerSample));// NOLINT
+    samples[i] = bytesToFloat(sampleBytes) * normFactor;
   }
 
   return true;
 }
 
-template<class T> bool ProcessAudio<T>::loadWaveFile()
+bool ProcessAudio::loadWaveFile()
 {
 
   const WaveHeaderChunk headerChunk = decodeHeaderChunk()
-                                  .leftMap([](auto hCk) { return hCk; })
-                                  .rightMap([](auto &msg) {
-                                    std::cerr << msg;
-                                    return WaveHeaderChunk{};
-                                  })
-                                  .join();
+                                        .leftMap([](auto hCk) { return hCk; })
+                                        .rightMap([](auto &msg) {
+                                          std::cerr << msg;
+                                          return WaveHeaderChunk{};
+                                        })
+                                        .join();
 
   const WaveFmtChunk fmtChunk = decodeFmtChunk()
-                            .leftMap([](auto fCk) { return fCk; })
-                            .rightMap([](auto &msg) {
-                              std::cerr << msg;
-                              WaveFmtChunk fmtCk;
-                              fmtCk.index = size_t(0);
-                              return fmtCk;
-                            })
-                            .join();
+                                  .leftMap([](auto fCk) { return fCk; })
+                                  .rightMap([](auto &msg) {
+                                    std::cerr << msg;
+                                    WaveFmtChunk fmtCk;
+                                    fmtCk.index = size_t(0);
+                                    return fmtCk;
+                                  })
+                                  .join();
 
   WaveDataChunk dataChunk = decodeDataChunk()
                               .leftMap([](auto dCk) { return dCk; })
@@ -282,7 +273,7 @@ template<class T> bool ProcessAudio<T>::loadWaveFile()
   return decodeSamples(fmtChunk, dataChunk);
 }
 
-template<class T> bool ProcessAudio<T>::loadAudioFromFile(const std::string &fileName)
+bool ProcessAudio::loadAudioFromFile(const std::string &fileName)
 {
   std::ifstream file(fileName, std::ios_base::binary);
 
@@ -323,211 +314,25 @@ template<class T> bool ProcessAudio<T>::loadAudioFromFile(const std::string &fil
   return true;
 }
 
+int32_t ProcessAudio::getSampleRate() const { return sampleRate; }
 
-template<class T> int32_t ProcessAudio<T>::getSampleRate() const
-{
-  return sampleRate;
-}
+int16_t ProcessAudio::getNumOfChannels() const { return int16_t(samples.size()); }
 
-template<class T> int16_t ProcessAudio<T>::getNumOfChannels() const
-{
-  return int16_t(samples.size());
-}
+bool ProcessAudio::isMono() const { return getNumOfChannels() == 1; }
 
-template<class T> bool ProcessAudio<T>::isMono() const
-{
-  return getNumOfChannels() == 1;
-}
+bool ProcessAudio::isStereo() const { return getNumOfChannels() == 2; }
 
-template<class T> bool ProcessAudio<T>::isStereo() const
-{
-  return getNumOfChannels() == 2;
-}
+int16_t ProcessAudio::getBitDepth() const { return bitDepth; }
 
-template<class T> int16_t ProcessAudio<T>::getBitDepth() const
-{
-  return bitDepth;
-}
-
-template<class T> int ProcessAudio<T>::getNumSamplesPerChannel() const
+int ProcessAudio::getNumSamplesPerChannel() const
 {
   if (!samples.empty()) {
-    return int(samples[0].size());
+    return int(samples.size() / size_t(getNumOfChannels()));
   } else {
     return 0;
   }
 }
 
-template<class T> double ProcessAudio<T>::getLengthInSeconds() const
-{
-  return double(getNumSamplesPerChannel()) / double(sampleRate);
-}
+double ProcessAudio::getLengthInSeconds() const { return double(getNumSamplesPerChannel()) / double(sampleRate); }
 
-template<typename SignedType> typename std::make_unsigned_t<SignedType> convertSignedToUnsigned(SignedType signedValue)
-{
-  static_assert(std::is_signed_v<SignedType>, "The input to this function must be a signed value.");
-
-  typename std::make_unsigned_t<SignedType> unsignedValue =
-    static_cast<typename std::make_unsigned_t<SignedType>>(1) + std::numeric_limits<SignedType>::max();
-
-  unsignedValue += signedValue;
-
-  return unsignedValue;
-}
-
-
-template<class T> T AudioSampleConverter<T>::signedByteToSample(int8_t sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    return static_cast<T>(sample) / static_cast<T>(127.);// NOLINT
-  } else if constexpr (std::numeric_limits<T>::is_integer) {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<T>(sample);
-    } else {
-      return static_cast<T>(convertSignedToUnsigned<int8_t>(sample));
-    }
-  }
-}
-
-template<class T> int8_t AudioSampleConverter<T>::sampleToSignedByte(T sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    sample = clamp(sample, -1., 1.);
-    return static_cast<int8_t>(sample * T(0x7F));// NOLINT
-  } else {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<int8_t>(clamp(sample, -128, 127));// NOLINT
-    } else {
-      return static_cast<int8_t>(clamp(sample, 0, 255) - 128);// NOLINT
-    }
-  }
-}
-
-template<class T> T AudioSampleConverter<T>::unsignedByteToSample(uint8_t sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    return static_cast<T>(sample - 128) / static_cast<T>(127.);// NOLINT
-  } else if (std::numeric_limits<T>::is_integer) {
-    if constexpr (std::is_unsigned_v<T>) {
-      return static_cast<T>(sample);
-    } else {
-      return static_cast<T>(sample - 128);// NOLINT
-    }
-  }
-}
-
-template<class T> uint8_t AudioSampleConverter<T>::sampleToUnsignedByte(T sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    sample = clamp(sample, -1., 1.);
-    sample = (sample + 1.) / 2.;// NOLINT
-    return static_cast<uint8_t>(1 + (sample * 254));// NOLINT
-  } else {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<uint8_t>(clamp(sample, -128, 127) + 128);// NOLINT
-    } else {
-      return static_cast<uint8_t>(clamp(sample, 0, 255));// NOLINT
-    }
-  }
-}
-
-template<class T> T AudioSampleConverter<T>::sixteenBitIntToSample(int16_t sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    return static_cast<T>(sample) / static_cast<T>(32767.);// NOLINT
-  } else if constexpr (std::numeric_limits<T>::is_integer) {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<T>(sample);
-    } else {
-      return static_cast<T>(convertSignedToUnsigned<int16_t>(sample));
-    }
-  }
-}
-
-template<class T> int16_t AudioSampleConverter<T>::sampleToSixteenBitInt(T sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    sample = clamp(sample, -1., 1.);
-    return static_cast<int16_t>(sample * 32767.);// NOLINT
-  } else {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<int16_t>(clamp(sample, SignedInt16_Min, SignedInt16_Max));
-    } else {
-      return static_cast<int16_t>(clamp(sample, UnsignedInt16_Min, UnsignedInt16_Max) + SignedInt16_Min);
-    }
-  }
-}
-
-template<class T> T AudioSampleConverter<T>::twentyFourBitIntToSample(int32_t sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    return static_cast<T>(sample) / static_cast<T>(8388607.);// NOLINT
-  } else if (std::numeric_limits<T>::is_integer) {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<T>(clamp(sample, SignedInt24_Min, SignedInt24_Max));
-    } else {
-      return static_cast<T>(clamp(sample + 8388608, UnsignedInt24_Min, UnsignedInt24_Max));// NOLINT
-    }
-  }
-}
-
-template<class T> int32_t AudioSampleConverter<T>::sampleToTwentyFourBitInt(T sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    sample = clamp(sample, -1., 1.);
-    return static_cast<int32_t>(sample * 8388607.);// NOLINT
-  } else {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<int32_t>(clamp(sample, SignedInt24_Min, SignedInt24_Max));
-    } else {
-      return static_cast<int32_t>(clamp(sample, UnsignedInt24_Min, UnsignedInt24_Max) + SignedInt24_Min);
-    }
-  }
-}
-
-template<class T> T AudioSampleConverter<T>::thirtyTwoBitIntToSample(int32_t sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    return static_cast<T>(sample) / static_cast<T>(std::numeric_limits<int32_t>::max());
-  } else if (std::numeric_limits<T>::is_integer) {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<T>(sample);
-    } else {
-      return static_cast<T>(clamp(static_cast<T>(sample + 2147483648), 0, 4294967295));// NOLINT
-    }
-  }
-}
-
-template<class T> int32_t AudioSampleConverter<T>::sampleToThirtyTwoBitInt(T sample)
-{
-  if constexpr (std::is_floating_point_v<T>) {
-    if constexpr (std::is_same_v<T, float>) {
-      if (sample >= 1.f) {// NOLINT
-        return std::numeric_limits<int32_t>::max();
-      } else if (sample <= -1.f) {// NOLINT
-        return std::numeric_limits<int32_t>::lowest() + 1;
-      } else {
-        return static_cast<int32_t>(sample * std::numeric_limits<int32_t>::max());
-      }
-    } else {
-      return static_cast<int32_t>(clamp(sample, -1., 1.) * std::numeric_limits<int32_t>::max());
-    }
-  } else {
-    if constexpr (std::is_signed_v<T>) {
-      return static_cast<int32_t>(clamp(sample, -2147483648LL, 2147483647LL));// NOLINT
-    } else {
-      return static_cast<int32_t>(clamp(sample, 0, 4294967295) - 2147483648);// NOLINT
-    }
-  }
-}
-
-template<class T> T AudioSampleConverter<T>::clamp(T value, T minValue, T maxValue)// NOLINT
-{
-  value = std::min(value, maxValue);
-  value = std::max(value, minValue);
-  return value;
-}
-
-// Explicit Template Instantiation
-template class ProcessAudio<float>;
 }// namespace asf

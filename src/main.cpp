@@ -1,24 +1,33 @@
+// NOLINTBEGIN
 #include <asfproject/process_audio.h>
-#include <iostream>
-// #include <matplot/matplot.h>
+#include <matplot/matplot.h>
 
 using namespace asf;
-// namespace plt = matplot;
 
 int main()
 {
+  using namespace matplot;
 
-  ProcessAudio<float> processAudio{};
+  ProcessAudio processAudio{};
   if (!processAudio.loadAudioFromFile("audio/file_example_WAV_1MG.wav")) {
-    processAudio.~ProcessAudio<float>();
+    processAudio.~ProcessAudio();
     return 1;
   }
 
-  std::cout << "That summary bruh:\n";
-  std::cout << "Num of channels: " << processAudio.getNumOfChannels() << "\n";
-  std::cout << "Num Samples Per Channel: " << processAudio.getNumSamplesPerChannel() << "\n";
-  std::cout << "Bit Depth: " << processAudio.getBitDepth() << "\n";
-  std::cout << "Length in seconds: " << processAudio.getLengthInSeconds() << "\n";
+  /*
+  for (int i = 0; i < processAudio.getNumSamplesPerChannel(); i++) {
+    for (int channel = 0; channel < processAudio.getNumOfChannels(); channel++) {
+      std::cout << processAudio.samples[size_t(channel)][size_t(i)] << "\n";
+    }
+  }
+
+  std::vector<double> x_time = linspace(0, processAudio.getLengthInSeconds());
+
+  plot(x_time, processAudio.samples[0], "-o");
+  plot(x_time, processAudio.samples[1], "-o");
   
+  save("waveform.svg");*/
+      
   return 0;
 }
+// NOLINTEND
