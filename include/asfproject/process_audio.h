@@ -57,7 +57,7 @@ private:
   std::vector<uint8_t> fileData;
   int32_t sampleRate{};
   int16_t bitDepth{};
-  int16_t duration{};
+  int16_t nChannels {};
   AudioFormat fileFormat{};
 
   AudioFormat getAudioFormat();

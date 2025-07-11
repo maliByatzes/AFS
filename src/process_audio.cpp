@@ -269,6 +269,7 @@ bool ProcessAudio::loadWaveFile()
 
   sampleRate = fmtChunk.sampleRate;
   bitDepth = fmtChunk.bitDepth;
+  nChannels = fmtChunk.nChannels;
 
   return decodeSamples(fmtChunk, dataChunk);
 }
@@ -316,7 +317,7 @@ bool ProcessAudio::loadAudioFromFile(const std::string &fileName)
 
 int32_t ProcessAudio::getSampleRate() const { return sampleRate; }
 
-int16_t ProcessAudio::getNumOfChannels() const { return int16_t(samples.size()); }
+int16_t ProcessAudio::getNumOfChannels() const { return nChannels; }
 
 bool ProcessAudio::isMono() const { return getNumOfChannels() == 1; }
 
@@ -327,7 +328,7 @@ int16_t ProcessAudio::getBitDepth() const { return bitDepth; }
 int ProcessAudio::getNumSamplesPerChannel() const
 {
   if (!samples.empty()) {
-    return int(samples.size() / size_t(getNumOfChannels()));
+    return int(samples.size());
   } else {
     return 0;
   }
