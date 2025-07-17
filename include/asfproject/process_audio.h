@@ -70,6 +70,8 @@ private:
   Either<WaveDataChunk, std::string> decodeDataChunk();
 
   bool decodeSamples(const WaveFmtChunk &, WaveDataChunk &);
+  void decode8Bits(const WaveFmtChunk &, const std::vector<uint8_t> &);
+  void decode16Bits(const WaveFmtChunk &, const std::vector<uint8_t> &);
 
   bool loadWaveFile();
 

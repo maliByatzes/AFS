@@ -204,6 +204,36 @@ float bytesToFloat(const std::span<const uint8_t> &bytes, Endianness endianness 
   return ans;
 }
 
+void ProcessAudio::decode8Bits(const WaveFmtChunk &fmtCk, const std::vector<uint8_t> &data)
+{
+  if (fmtCk.nChannels == 1) {
+    for (size_t i = 0; i < samples.size(); ++i) { samples[i] = static_cast<float>(data[i]); }
+  } else {
+    throw std::domain_error("That quantity of chanels is still unsupported.");
+  }
+}
+
+void ProcessAudio::decode16Bits(const WaveFmtChunk &fmtCk, const std::vector<uint8_t> &data)
+{
+  if (fmtCk.nChannels == 1) {
+    for (size_t i = 0, k = 0; i < samples.size(); ++i, k += 2) {
+      float sample = static_cast<int16_t>((data[k + 1] << 8) | data[k]);// NOLINT
+      samples[i] = sample;
+    }
+  } else if (fmtCk.nChannels == 2) {
+    size_t k = 0;//NOLINT
+    for (size_t i = 0; i < samples.size() - 1; i += 2) {
+      int16_t leftSample = static_cast<int16_t>((data[k + 1] << 8) | data[k]);// NOLINT
+      int16_t rightSample = static_cast<int16_t>((data[k + 3] << 8) | data[k + 2]);// NOLINT
+      samples[i] = leftSample;
+      samples[i + 1] = rightSample;// NOLINT
+      k += 4;
+    }
+  } else {
+    throw std::domain_error("That quantity of chanels is still unsupported.");
+  }
+}
+
 bool ProcessAudio::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
 {
   std::vector<uint8_t> data(size_t(dataChunk.ckSize));
@@ -219,41 +249,14 @@ bool ProcessAudio::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &da
   samples.clear();
   samples.resize(numSamples);
 
-  if (fmtChunk.tag == WaveFormat::PCM) {
-
-    if (fmtChunk.bitDepth == 8) {// NOLINT
-
-      if (fmtChunk.nChannels == 1) {
-
-        for (size_t i = 0; i < samples.size(); ++i) {
-          samples[i] = static_cast<float>(data[i]);
-        }     
-        
-      } else {
-        throw std::domain_error("That quantity of chanels is still unsupported.");
-      }
-      
-    } else if (fmtChunk.bitDepth == 16) { // NOLINT
-      
-      if (fmtChunk.nChannels == 1) {
-
-        for (size_t i = 0, k = 0; i < samples.size(); ++i, k += 2) {
-          float sample = static_cast<int16_t>( (data[k+1] << 8) | data[k] ); // NOLINT
-          samples[i] = sample;
-        }     
-
-      } else {
-        throw std::domain_error("That quantity of chanels is still unsupported.");
-      }
-      
-    } else if (fmtChunk.bitDepth == 24) { // NOLINT
-      assert(true && "Not implemented!");
-    } else if (fmtChunk.bitDepth == 32) { // NOLINT
-      assert(true && "Not implemented!");
-    }
-    
-  } else {
-    throw std::domain_error("That wave format ain't currently supported yet!");
+  if (fmtChunk.bitDepth == 8) {// NOLINT
+    decode8Bits(fmtChunk, data);
+  } else if (fmtChunk.bitDepth == 16) {// NOLINT
+    decode16Bits(fmtChunk, data);
+  } else if (fmtChunk.bitDepth == 24) {// NOLINT
+    assert(true && "Not implemented!");
+  } else if (fmtChunk.bitDepth == 32) {// NOLINT
+    assert(true && "Not implemented!");
   }
 
   return true;
