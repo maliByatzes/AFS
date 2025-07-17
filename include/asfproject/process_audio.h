@@ -29,7 +29,7 @@ struct WaveHeaderChunk
 
 struct WaveFmtChunk
 {
-  size_t index{};
+  int index{};
   std::string ckID;
   int32_t ckSize{};
   int16_t tag{};
@@ -42,7 +42,7 @@ struct WaveFmtChunk
 
 struct WaveDataChunk
 {
-  size_t index{};
+  int index{};
   std::string ckID;
   int32_t ckSize{};
   int nSamples{};

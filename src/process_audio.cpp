@@ -2,13 +2,13 @@
 #include <asfproject/either.h>
 #include <asfproject/process_audio.h>
 #include <cassert>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <ios>
 #include <iostream>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -68,7 +68,6 @@ int16_t ProcessAudio::convertTwoBytesToInt16(size_t startIdx, Endianness endiann
   return res;
 }
 
-
 Either<size_t, std::string>
   ProcessAudio::getIndexOfChunk(const std::string &ckID, size_t startIdx, [[maybe_unused]] Endianness _endianness)
 {
@@ -119,14 +118,14 @@ Either<WaveFmtChunk, std::string> ProcessAudio::decodeFmtChunk()
   WaveFmtChunk fmtChunk{};
 
   fmtChunk.index = getIndexOfChunk("fmt ", 12)// NOLINT
-                     .leftMap([](auto idx) { return idx; })
+                     .leftMap([](auto idx) { return int(idx); })
                      .rightMap([](auto &msg) {
                        std::cerr << msg;
-                       return size_t(0);
+                       return -1;
                      })
                      .join();
 
-  size_t f = fmtChunk.index;// NOLINT
+  size_t f = size_t(fmtChunk.index);// NOLINT
 
   fmtChunk.ckID = { fileData.begin() + int(f), fileData.begin() + int(f) + 4 };
   fmtChunk.ckSize = convertFourBytesToInt32(f + 4);
@@ -168,13 +167,13 @@ Either<WaveDataChunk, std::string> ProcessAudio::decodeDataChunk()
   WaveDataChunk dataChunk{};
 
   dataChunk.index = getIndexOfChunk("data", 12)// NOLINT
-                      .leftMap([](auto idx) { return idx; })
+                      .leftMap([](auto idx) { return int(idx); })
                       .rightMap([](auto &msg) {
                         std::cerr << msg;
-                        return size_t(0);
+                        return -1;
                       })
                       .join();
-  size_t d = dataChunk.index;// NOLINT
+  size_t d = size_t(dataChunk.index);// NOLINT
 
   dataChunk.ckID = { fileData.begin() + int(d), fileData.begin() + int(d) + 4 };
   dataChunk.ckSize = convertFourBytesToInt32(d + 4);
@@ -208,23 +207,53 @@ float bytesToFloat(const std::span<const uint8_t> &bytes, Endianness endianness 
 bool ProcessAudio::decodeSamples(const WaveFmtChunk &fmtChunk, WaveDataChunk &dataChunk)
 {
   std::vector<uint8_t> data(size_t(dataChunk.ckSize));
-  size_t offset = dataChunk.index + 8;// NOLINT
+  size_t offset = size_t(dataChunk.index + 8);// NOLINT
 
   if (offset + size_t(dataChunk.ckSize) <= fileData.size()) {// NOLINT
     std::copy(fileData.begin() + int(offset), fileData.begin() + int(offset) + dataChunk.ckSize, data.begin());
   }
 
   int bytesPerSample = fmtChunk.bitDepth / 8;// NOLINT
-  auto samplesSize = size_t(dataChunk.ckSize / (bytesPerSample * fmtChunk.nChannels));
+  auto numSamples = size_t(dataChunk.ckSize / (bytesPerSample * fmtChunk.nChannels));
 
   samples.clear();
-  samples.resize(samplesSize);
-  const float normFactor = 1.0F / float(std::pow(2, bitDepth - 1) - 1);
+  samples.resize(numSamples);
 
-  for (size_t i = 0; i < samples.size(); i++) {
-    const int offset2 = int(i) * bytesPerSample * fmtChunk.nChannels;
-    std::span<const uint8_t> sampleBytes(data.data() + offset2, size_t(bytesPerSample));// NOLINT
-    samples[i] = bytesToFloat(sampleBytes) * normFactor;
+  if (fmtChunk.tag == WaveFormat::PCM) {
+
+    if (fmtChunk.bitDepth == 8) {// NOLINT
+
+      if (fmtChunk.nChannels == 1) {
+
+        for (size_t i = 0; i < samples.size(); ++i) {
+          samples[i] = static_cast<float>(data[i]);
+        }     
+        
+      } else {
+        throw std::domain_error("That quantity of chanels is still unsupported.");
+      }
+      
+    } else if (fmtChunk.bitDepth == 16) { // NOLINT
+      
+      if (fmtChunk.nChannels == 1) {
+
+        for (size_t i = 0, k = 0; i < samples.size(); ++i, k += 2) {
+          float sample = static_cast<int16_t>( (data[k+1] << 8) | data[k] ); // NOLINT
+          samples[i] = sample;
+        }     
+
+      } else {
+        throw std::domain_error("That quantity of chanels is still unsupported.");
+      }
+      
+    } else if (fmtChunk.bitDepth == 24) { // NOLINT
+      assert(true && "Not implemented!");
+    } else if (fmtChunk.bitDepth == 32) { // NOLINT
+      assert(true && "Not implemented!");
+    }
+    
+  } else {
+    throw std::domain_error("That wave format ain't currently supported yet!");
   }
 
   return true;
@@ -246,7 +275,7 @@ bool ProcessAudio::loadWaveFile()
                                   .rightMap([](auto &msg) {
                                     std::cerr << msg;
                                     WaveFmtChunk fmtCk;
-                                    fmtCk.index = size_t(0);
+                                    fmtCk.index = -1;
                                     return fmtCk;
                                   })
                                   .join();
@@ -256,12 +285,12 @@ bool ProcessAudio::loadWaveFile()
                               .rightMap([](auto &msg) {
                                 std::cerr << msg;
                                 WaveDataChunk dataCk;
-                                dataCk.index = size_t(0);
+                                dataCk.index = -1;
                                 return dataCk;
                               })
                               .join();
 
-  if (fmtChunk.index == 0 || dataChunk.index == 0 || headerChunk.ckID != "RIFF"
+  if (fmtChunk.index == -1 || dataChunk.index == -1 || headerChunk.ckID != "RIFF"
       || headerChunk.fileTypeHeader != "WAVE") {
     // std::cerr << "This is not a valid .WAV file.\n";
     return false;
