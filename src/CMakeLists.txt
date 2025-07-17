@@ -1,4 +1,4 @@
-add_executable(ASF main.cpp process_audio.cpp)
+add_executable(ASF main.cpp process_audio.cpp fft.cpp)
 
 target_link_libraries(
   ASF
@@ -9,6 +9,7 @@ target_link_system_libraries(
   ASF
   PRIVATE
           matplot
+          fftw3
 )
 
 target_include_directories(ASF ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>

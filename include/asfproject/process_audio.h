@@ -76,7 +76,7 @@ private:
   bool loadWaveFile();
 
 public:
-  std::vector<float> samples;
+  std::vector<double> samples;
 
   ProcessAudio();
   explicit ProcessAudio(const std::string &);

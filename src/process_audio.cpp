@@ -207,7 +207,7 @@ float bytesToFloat(const std::span<const uint8_t> &bytes, Endianness endianness 
 void ProcessAudio::decode8Bits(const WaveFmtChunk &fmtCk, const std::vector<uint8_t> &data)
 {
   if (fmtCk.nChannels == 1) {
-    for (size_t i = 0; i < samples.size(); ++i) { samples[i] = static_cast<float>(data[i]); }
+    for (size_t i = 0; i < samples.size(); ++i) { samples[i] = data[i]; }
   } else {
     throw std::domain_error("That quantity of chanels is still unsupported.");
   }
@@ -217,7 +217,7 @@ void ProcessAudio::decode16Bits(const WaveFmtChunk &fmtCk, const std::vector<uin
 {
   if (fmtCk.nChannels == 1) {
     for (size_t i = 0, k = 0; i < samples.size(); ++i, k += 2) {
-      float sample = static_cast<int16_t>((data[k + 1] << 8) | data[k]);// NOLINT
+      double sample = static_cast<int16_t>((data[k + 1] << 8) | data[k]);// NOLINT
       samples[i] = sample;
     }
   } else if (fmtCk.nChannels == 2) {
