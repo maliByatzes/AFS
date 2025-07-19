@@ -5,8 +5,11 @@
 #include <complex>
 #include <cstddef>
 #include <cstdlib>
+#include <matplot/core/figure_registry.h>
+#include <matplot/freestanding/axes_functions.h>
 #include <matplot/freestanding/plot.h>
 #include <matplot/util/common.h>
+#include <matplot/util/keywords.h>
 #include <vector>
 
 using namespace asf;
@@ -14,6 +17,7 @@ using namespace matplot;
 
 std::vector<double> scaleDownSamples(const std::vector<double> &samples);
 void plotSamples(const std::vector<double> &samples, size_t nSamples);
+std::vector<double> unwrap(const std::vector<double> &phase_rad);
 
 int main()
 {
@@ -31,19 +35,53 @@ int main()
 
   VecComplexDoub frequency_values = fft.convertToFrequencyDomain(prA.samples);
 
-  std::vector<double> magnitude_values(frequency_values.size());
-  std::vector<double> phase_values(frequency_values.size());
+  size_t N = frequency_values.size();//NOLINT
+  const size_t num_uniq_freq_bins = (N / 2) + 1;
 
-  for (size_t i = 0; i < frequency_values.size(); ++i) {
+  std::vector<double> magnitude_values(num_uniq_freq_bins);
+  std::vector<double> phase_values(num_uniq_freq_bins);
+
+  for (size_t i = 0; i < num_uniq_freq_bins; ++i) {
     magnitude_values[i] = std::abs(frequency_values[i]);
     phase_values[i] = std::arg(frequency_values[i]);
   }
 
-  const std::vector<double> frequency = linspace(0, prA.getSampleRate());
+  std::vector<double> unwrapped_phase_radians = unwrap(phase_values);
 
-  plot(frequency, phase_values, "-o");
+  std::vector<double> unwrapped_phase_degrees(unwrapped_phase_radians.size());
+  for (size_t i = 0; i < unwrapped_phase_radians.size(); ++i) {
+    unwrapped_phase_degrees[i] = unwrapped_phase_radians[i] * 180.0 / M_PI;// NOLINT
+  }
 
-  save("phase_values.svg");
+  double nyquist_freq = prA.getSampleRate() / 2.0;// NOLINT
+  const std::vector<double> frequencies = linspace(0.0, nyquist_freq, num_uniq_freq_bins);
+
+  figure();
+  plot(frequencies, unwrapped_phase_degrees, "-");
+  xlabel("Frequency (Hz)");
+  ylabel("Phase (degrees)");
+  title("Phase Spectrum of Audio Recording");
+  grid(on);
+  save("audio_phase_spectrum.svg");
+
+  std::vector<double> magnitude_values_db(num_uniq_freq_bins);
+  for (size_t i = 0; i < num_uniq_freq_bins; ++i) {
+    if (magnitude_values[i] > 1e-12) {// NOLINT
+      magnitude_values_db[i] = 20.0 * std::log10(magnitude_values[i]);//NOLINT
+    } else {
+      magnitude_values_db[i] = -200.0;//NOLINT
+    }
+  }
+
+  figure();
+  plot(frequencies, magnitude_values_db, "-");
+  xlabel("Frequency (Hz)");
+  ylabel("Magnitude (dB)");
+  title("Magnitude Spectrum of Audio Recording");
+  grid(on);
+  save("audio_magnitude_spectrum.svg");
+
+  show();
 
   return 0;
 }
@@ -86,4 +124,23 @@ void plotSamples(const std::vector<double> &samples, size_t nSamples)
 
   stem(downsampled_time_values, downsampled_scaled_samples);
   save("stem_plot.svg");
+}
+
+std::vector<double> unwrap(const std::vector<double> &phase_rad) {
+  //-- Helper for phase unwrapping
+  if (phase_rad.empty()) {
+    return {};
+  }
+
+  std::vector<double> unwrapped = phase_rad;
+  for (size_t i = 1; i < unwrapped.size(); ++i) {
+    const double diff = unwrapped[i] - unwrapped[i - 1];
+    if(diff > M_PI) {
+      unwrapped[i] -= 2.0 * M_PI;// NOLINT
+    } else if (diff < -M_PI) {
+      unwrapped[i] += 2.0 * M_PI;// NOLINT
+    }
+  }
+
+  return unwrapped;
 }
