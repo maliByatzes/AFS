@@ -2,6 +2,7 @@
 #define process_audio_h_
 
 #include "either.h"
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -69,11 +70,22 @@ private:
   Either<WaveFmtChunk, std::string> decodeFmtChunk();
   Either<WaveDataChunk, std::string> decodeDataChunk();
 
+  void encodeHeaderChunk(std::vector<uint8_t> &) const;
+  void encodeFmtChunk(std::vector<uint8_t> &) const;
+  void encodeDataChunk(std::vector<uint8_t> &);
+
   bool decodeSamples(const WaveFmtChunk &, WaveDataChunk &);
   void decode8Bits(const WaveFmtChunk &, const std::vector<uint8_t> &);
   void decode16Bits(const WaveFmtChunk &, const std::vector<uint8_t> &);
 
+  bool encodeWaveFile(std::vector<uint8_t> &);
+  void encode8Bits(std::vector<uint8_t> &);
+  void encode16Bits(std::vector<uint8_t> &);
+
   bool loadWaveFile();
+
+  bool saveDataToMemory(std::vector<uint8_t> &, AudioFormat);
+  static bool writeDataToFile(std::vector<uint8_t> &, const std::string &);
 
 public:
   std::vector<double> samples;
@@ -82,6 +94,7 @@ public:
   explicit ProcessAudio(const std::string &);
 
   bool loadAudioFromFile(const std::string &);
+  bool saveAudioToFile(const std::string &, AudioFormat);
 
   [[nodiscard]] int32_t getSampleRate() const;
   [[nodiscard]] int16_t getNumOfChannels() const;
@@ -91,6 +104,13 @@ public:
   [[nodiscard]] int getNumSamplesPerChannel() const;
   [[nodiscard]] double getLengthInSeconds() const;
 };
+
+/*-- Helper functions --*/
+void addStringToData(std::vector<uint8_t> &, const std::string &);
+void addInt32ToData(std::vector<uint8_t> &, int32_t);
+void addInt16ToData(std::vector<uint8_t> &, int16_t);
+std::array<uint8_t, 4> convertInt32ToFourBytes(int32_t, Endianness = Endianness::LittleEndian);
+std::array<uint8_t, 2> convertInt16ToTwoBytes(int16_t, Endianness = Endianness::LittleEndian);
 
 };// namespace asf
 

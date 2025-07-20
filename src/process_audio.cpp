@@ -1,13 +1,16 @@
 #include <algorithm>
+#include <array>
 #include <asfproject/either.h>
 #include <asfproject/process_audio.h>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <span>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -181,27 +184,64 @@ Either<WaveDataChunk, std::string> ProcessAudio::decodeDataChunk()
   return left(dataChunk);
 }
 
-float bytesToFloat(const std::span<const uint8_t> &bytes, Endianness endianness = Endianness::LittleEndian)
+void ProcessAudio::encodeHeaderChunk(std::vector<uint8_t> &data) const
 {
-  float ans{};
+  int32_t dataChunkSize = getNumSamplesPerChannel() * (getNumOfChannels() * bitDepth / 8);// NOLINT
+  int16_t audioFormat = bitDepth == 32 && WaveFormat::PCM;// NOLINT
+  int32_t fmtChunkSize = audioFormat == WaveFormat::PCM ? 16 : 18;// NOLINT
 
-  if (endianness == Endianness::LittleEndian) {
-    if (bytes.size() == 1) {
-      ans = float(bytes[0] - 128);// NOLINT
-    } else if (bytes.size() == 2) {
-      ans = float((bytes[1] << 8) | bytes[0]);// NOLINT
-    } else if (bytes.size() == 3) {
-      ans = float(((bytes[2] >> 7) * (0xFF << 24)) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]);// NOLINT
-    } else if (bytes.size() == 4) {
-      ans = float((bytes[3] << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0]);// NOLINT
-    } else {
-      assert(true && "Something is truly wrong if u hit this.");
-    }
-  } else {
+  // ckID	4	Chunk ID: "RIFF"
+  addStringToData(data, "RIFF");
+
+  // cksize	4	Chunk size: 4+n
+  int32_t headerCkSize = 4 + fmtChunkSize + 8 + 8 + dataChunkSize;// NOLINT
+  addInt32ToData(data, headerCkSize);
+
+  // 	WAVEID	4	WAVE ID: "WAVE"
+  addStringToData(data, "WAVE");
+}
+
+void ProcessAudio::encodeFmtChunk(std::vector<uint8_t> &data) const
+{
+  int16_t audioFormat = bitDepth == 32 && WaveFormat::PCM;// NOLINT
+  int32_t fmtChunkSize = audioFormat == WaveFormat::PCM ? 16 : 18;// NOLINT
+
+  // ckID	4	Chunk ID: "fmt "
+  addStringToData(data, "fmt ");
+  // cksize	4	Chunk size: 16, 18 or 40
+  addInt32ToData(data, fmtChunkSize);
+  // wFormatTag	2	Format code
+  addInt16ToData(data, audioFormat);
+  // nChannels	2	Number of interleaved channels
+  addInt16ToData(data, getNumOfChannels());
+  // 	nSamplesPerSec	4	Sampling rate (blocks per second)
+  addInt32ToData(data, sampleRate);
+  // nAvgBytesPerSec	4	Data rate
+  addInt32ToData(data, sampleRate * (bitDepth / 8) * getNumOfChannels());// NOLINT
+  // nBlockAlign	2	Data block size (bytes)
+  addInt16ToData(data, int16_t((bitDepth / 8) * getNumOfChannels()));// NOLINT
+  // wBitsPerSample	2	Bits per sample
+  addInt16ToData(data, bitDepth);
+}
+
+void ProcessAudio::encodeDataChunk(std::vector<uint8_t> &data)
+{
+  // ckID	4	Chunk ID: "data"
+  addStringToData(data, "data");
+  // cksize	4	Chunk size: n
+  int16_t dataCkSize = int16_t(getNumSamplesPerChannel() * (getNumOfChannels() * bitDepth / 8));// NOLINT
+  addInt16ToData(data, dataCkSize);// NOLINT
+
+  // 	sampled data	n	Samples
+  if (bitDepth == 8) {// NOLINT
+    encode8Bits(data);
+  } else if (bitDepth == 16) {// NOLINT
+    encode16Bits(data);
+  } else if (bitDepth == 24) {// NOLINT
+    assert(true && "Not implemented!");
+  } else if (bitDepth == 32) {// NOLINT
     assert(true && "Not implemented!");
   }
-
-  return ans;
 }
 
 void ProcessAudio::decode8Bits(const WaveFmtChunk &fmtCk, const std::vector<uint8_t> &data)
@@ -209,7 +249,7 @@ void ProcessAudio::decode8Bits(const WaveFmtChunk &fmtCk, const std::vector<uint
   if (fmtCk.nChannels == 1) {
     for (size_t i = 0; i < samples.size(); ++i) { samples[i] = data[i]; }
   } else {
-    throw std::domain_error("That quantity of chanels is still unsupported.");
+    throw std::domain_error("That quantity of channels is still unsupported.");
   }
 }
 
@@ -221,7 +261,7 @@ void ProcessAudio::decode16Bits(const WaveFmtChunk &fmtCk, const std::vector<uin
       samples[i] = sample;
     }
   } else if (fmtCk.nChannels == 2) {
-    size_t k = 0;//NOLINT
+    size_t k = 0;// NOLINT
     for (size_t i = 0; i < samples.size() - 1; i += 2) {
       int16_t leftSample = static_cast<int16_t>((data[k + 1] << 8) | data[k]);// NOLINT
       int16_t rightSample = static_cast<int16_t>((data[k + 3] << 8) | data[k + 2]);// NOLINT
@@ -306,6 +346,79 @@ bool ProcessAudio::loadWaveFile()
   return decodeSamples(fmtChunk, dataChunk);
 }
 
+bool ProcessAudio::encodeWaveFile(std::vector<uint8_t> &data)
+{
+  encodeHeaderChunk(data);
+  encodeFmtChunk(data);
+  encodeDataChunk(data);
+
+  return true;
+}
+
+void ProcessAudio::encode8Bits(std::vector<uint8_t> &data)
+{
+  if (getNumOfChannels() == 1) {
+    for (const double sampleDbl : samples) {
+      const uint8_t sample =
+        static_cast<uint8_t>(std::round(std::max(static_cast<double>(std::numeric_limits<uint8_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<uint8_t>::max()), sampleDbl))));
+      data.push_back(sample);
+    }
+  } else {
+    throw std::domain_error("That quantity of channels is not supported yet!");
+  }
+}
+
+void ProcessAudio::encode16Bits(std::vector<uint8_t> &data)
+{
+  if (getNumOfChannels() == 1) {
+    for (const double sampleDbl : samples) {
+      const int16_t sample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), sampleDbl))));
+
+      data.push_back(static_cast<uint8_t>(sample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((sample >> 8) & 0xFF));// NOLINT
+    }
+  } else if (getNumOfChannels() == 2) {
+    for (size_t i = 0; i < samples.size(); i += 2) {
+      const int16_t leftSample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), samples[i]))));
+
+      const int16_t rightSample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), samples[i + 1]))));
+
+      data.push_back(static_cast<uint8_t>(leftSample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((leftSample >> 8) & 0xFF));// NOLINT
+
+      data.push_back(static_cast<uint8_t>(rightSample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((rightSample >> 8) & 0xFF));// NOLINT
+    }
+  } else {
+    throw std::domain_error("That quantity of channels is unsupported.");
+  }
+}
+
+bool ProcessAudio::saveDataToMemory(std::vector<uint8_t> &data, AudioFormat format)
+{
+  if (format == AudioFormat::WAVE) { return encodeWaveFile(data); }
+
+  return false;
+}
+
+bool ProcessAudio::writeDataToFile(std::vector<uint8_t> &data, const std::string &file_name)
+{
+  std::ofstream outputFile(file_name, std::ios::binary);
+
+  if (!outputFile.is_open()) { return false; }
+
+  outputFile.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));// NOLINT
+  outputFile.close();
+  return true;
+}
+
 bool ProcessAudio::loadAudioFromFile(const std::string &fileName)
 {
   std::ifstream file(fileName, std::ios_base::binary);
@@ -347,6 +460,12 @@ bool ProcessAudio::loadAudioFromFile(const std::string &fileName)
   return true;
 }
 
+bool ProcessAudio::saveAudioToFile(const std::string &file_name, AudioFormat format)
+{
+  std::vector<uint8_t> data{};
+  return saveDataToMemory(data, format) && writeDataToFile(data, file_name);
+}
+
 int32_t ProcessAudio::getSampleRate() const { return sampleRate; }
 
 int16_t ProcessAudio::getNumOfChannels() const { return nChannels; }
@@ -367,5 +486,64 @@ int ProcessAudio::getNumSamplesPerChannel() const
 }
 
 double ProcessAudio::getLengthInSeconds() const { return double(getNumSamplesPerChannel()) / double(sampleRate); }
+
+/*-- Helper functions --*/
+
+void addStringToData(std::vector<uint8_t> &data, const std::string &str)
+{
+  for (const auto &value : str) { data.push_back(uint8_t(value)); }
+}
+
+void addInt32ToData(std::vector<uint8_t> &data, int32_t value)
+{
+  const std::array<uint8_t, 4> bytes{ convertInt32ToFourBytes(value) };
+
+  for (const auto &val : bytes) { data.push_back(val); }
+}
+
+void addInt16ToData(std::vector<uint8_t> &data, int16_t value)
+{
+  const std::array<uint8_t, 2> bytes{ convertInt16ToTwoBytes(value) };
+
+  for (const auto &val : bytes) { data.push_back(val); }
+}
+
+std::array<uint8_t, 4> convertInt32ToFourBytes(int32_t value, Endianness endianness)
+{
+  std::array<uint8_t, 4> bytes{};
+
+  // NOLINTBEGIN
+  if (endianness == Endianness::LittleEndian) {
+    bytes[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
+    bytes[2] = static_cast<uint8_t>((value >> 16) & 0xFF);
+    bytes[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[0] = static_cast<uint8_t>(value & 0xFF);
+  } else {
+    bytes[0] = static_cast<uint8_t>((value >> 24) & 0xFF);
+    bytes[1] = static_cast<uint8_t>((value >> 16) & 0xFF);
+    bytes[2] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[3] = static_cast<uint8_t>(value & 0xFF);
+  }
+  // NOLINTEND
+
+  return bytes;
+}
+
+std::array<uint8_t, 2> convertInt16ToTwoBytes(int16_t value, Endianness endianness)
+{
+  std::array<uint8_t, 2> bytes{};
+
+  // NOLINTBEGIN
+  if (endianness == Endianness::LittleEndian) {
+    bytes[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[0] = static_cast<uint8_t>(value & 0xFF);
+  } else {
+    bytes[0] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[1] = static_cast<uint8_t>(value & 0xFF);
+  }
+  // NOLINTEND
+
+  return bytes;
+}
 
 }// namespace asf

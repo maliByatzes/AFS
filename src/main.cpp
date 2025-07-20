@@ -30,13 +30,15 @@ int main()
   const std::vector<double> scaled_samples{ scaleDownSamples(prA.samples) };
   auto nSamples = size_t(prA.getNumSamplesPerChannel());
 
-  plotSamples(scaled_samples, nSamples);*/
+  plotSamples(scaled_samples, nSamples);
 
   const FFT fft{};
 
   VecComplexDoub frequency_values = fft.convertToFrequencyDomain(prA.samples);
 
-  plotFrequencySpectrums(frequency_values, prA.getSampleRate());
+  plotFrequencySpectrums(frequency_values, prA.getSampleRate());*/
+
+  if (!prA.saveAudioToFile("audio/1hertz_ff.wav", AudioFormat::WAVE)) { return 1; }
 
   return 0;
 }
