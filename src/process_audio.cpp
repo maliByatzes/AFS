@@ -187,8 +187,7 @@ Either<WaveDataChunk, std::string> ProcessAudio::decodeDataChunk()
 void ProcessAudio::encodeHeaderChunk(std::vector<uint8_t> &data) const
 {
   int32_t dataChunkSize = getNumSamplesPerChannel() * (getNumOfChannels() * bitDepth / 8);// NOLINT
-  int16_t audioFormat = bitDepth == 32 && WaveFormat::PCM;// NOLINT
-  int32_t fmtChunkSize = audioFormat == WaveFormat::PCM ? 16 : 18;// NOLINT
+  int32_t fmtChunkSize = formatTag == WaveFormat::PCM ? 16 : 18;// NOLINT
 
   // ckID	4	Chunk ID: "RIFF"
   addStringToData(data, "RIFF");
@@ -203,15 +202,14 @@ void ProcessAudio::encodeHeaderChunk(std::vector<uint8_t> &data) const
 
 void ProcessAudio::encodeFmtChunk(std::vector<uint8_t> &data) const
 {
-  int16_t audioFormat = bitDepth == 32 && WaveFormat::PCM;// NOLINT
-  int32_t fmtChunkSize = audioFormat == WaveFormat::PCM ? 16 : 18;// NOLINT
+  int32_t fmtChunkSize = formatTag == WaveFormat::PCM ? 16 : 18;// NOLINT
 
   // ckID	4	Chunk ID: "fmt "
   addStringToData(data, "fmt ");
   // cksize	4	Chunk size: 16, 18 or 40
   addInt32ToData(data, fmtChunkSize);
   // wFormatTag	2	Format code
-  addInt16ToData(data, audioFormat);
+  addInt16ToData(data, formatTag);
   // nChannels	2	Number of interleaved channels
   addInt16ToData(data, getNumOfChannels());
   // 	nSamplesPerSec	4	Sampling rate (blocks per second)
@@ -229,8 +227,8 @@ void ProcessAudio::encodeDataChunk(std::vector<uint8_t> &data)
   // ckID	4	Chunk ID: "data"
   addStringToData(data, "data");
   // cksize	4	Chunk size: n
-  int16_t dataCkSize = int16_t(getNumSamplesPerChannel() * (getNumOfChannels() * bitDepth / 8));// NOLINT
-  addInt16ToData(data, dataCkSize);// NOLINT
+  int32_t dataCkSize = getNumSamplesPerChannel() * (getNumOfChannels() * bitDepth / 8);// NOLINT
+  addInt32ToData(data, dataCkSize);// NOLINT
 
   // 	sampled data	n	Samples
   if (bitDepth == 8) {// NOLINT
@@ -342,6 +340,7 @@ bool ProcessAudio::loadWaveFile()
   sampleRate = fmtChunk.sampleRate;
   bitDepth = fmtChunk.bitDepth;
   nChannels = fmtChunk.nChannels;
+  formatTag = fmtChunk.tag;
 
   return decodeSamples(fmtChunk, dataChunk);
 }

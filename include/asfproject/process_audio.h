@@ -59,6 +59,7 @@ private:
   int32_t sampleRate{};
   int16_t bitDepth{};
   int16_t nChannels {};
+  int16_t formatTag {};
   AudioFormat fileFormat{};
 
   AudioFormat getAudioFormat();
