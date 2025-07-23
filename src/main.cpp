@@ -1,15 +1,18 @@
 #include <algorithm>
+#include <asfproject/audio_engine.h>
+#include <asfproject/audio_file.h>
 #include <asfproject/fft.h>
-#include <asfproject/process_audio.h>
 #include <cmath>
 #include <complex>
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <matplot/core/figure_registry.h>
 #include <matplot/freestanding/axes_functions.h>
 #include <matplot/freestanding/plot.h>
 #include <matplot/util/common.h>
 #include <matplot/util/keywords.h>
+#include <memory>
 #include <vector>
 
 using namespace asf;
@@ -22,23 +25,20 @@ std::vector<double> unwrap(const std::vector<double> &phase_rad);
 
 int main()
 {
+  const AudioEngine engine;
 
-  ProcessAudio prA{};
-  if (!prA.loadAudioFromFile("audio/1hertz.wav")) { return 1; }
-
-  /*
-  const std::vector<double> scaled_samples{ scaleDownSamples(prA.samples) };
-  auto nSamples = size_t(prA.getNumSamplesPerChannel());
-
-  plotSamples(scaled_samples, nSamples);
-
-  const FFT fft{};
-
-  VecComplexDoub frequency_values = fft.convertToFrequencyDomain(prA.samples);
-
-  plotFrequencySpectrums(frequency_values, prA.getSampleRate());*/
-
-  if (!prA.saveAudioToFile("audio/1hertz_ff.wav", AudioFormat::WAVE)) { return 1; }
+  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/1hertz.wav");
+  if (wave_audio) {
+    std::cout << "Loaded WAV file.\n";
+    std::cout << "Print summary:\n";
+    std::cout << "Sample rate: " << wave_audio->getSampleRate() << "\n";
+    std::cout << "Number of channels: " << wave_audio->getNumChannels() << "\n";
+    std::cout << "Bit depth: " << wave_audio->getBitDepth() << "\n";
+    std::cout << "Number of samples: " << wave_audio->getNumSamplesPerChannel() << "\n";
+    std::cout << "Duration: " << wave_audio->getDurationSeconds() << "\n";
+  } else {
+    std::cerr << "Failed to load WAV file.\n";
+  }
 
   return 0;
 }
