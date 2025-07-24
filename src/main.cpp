@@ -41,7 +41,7 @@ int main()
     return EXIT_FAILURE;
   }
 
-  if (!wave_audio->save("audio/1hertz_ff.wav")) {
+  if (!engine.saveAudioFile(*wave_audio, "audio/1hertz_ff2.wav")) {
     std::cerr << "Failed to save data to file.\n";
     return EXIT_FAILURE;
   }

@@ -14,6 +14,16 @@ public:
 
   virtual bool load(const std::string &) = 0;
   [[nodiscard]] virtual bool save(const std::string &) const = 0;
+  virtual void setPCMData(const std::vector<double> &pcm_data, int32_t sample_rate, int16_t num_channels) {//NOLINT
+    m_pcm_data = pcm_data;
+    m_sample_rate = sample_rate;
+    m_num_channels = num_channels;
+    if (m_sample_rate > 0 && m_num_channels > 0) {
+      m_duration_seconds = static_cast<double>(m_pcm_data.size()) / (m_sample_rate * m_num_channels);
+    } else {
+      m_duration_seconds = 0.0;
+    }
+  }
   [[nodiscard]] virtual std::vector<double> getPCMData() const = 0;
   [[nodiscard]] virtual int32_t getSampleRate() const = 0;
   [[nodiscard]] virtual int16_t getNumChannels() const = 0;
