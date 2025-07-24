@@ -1,13 +1,16 @@
 #include <algorithm>
+#include <array>
 #include <asfproject/either.h>
 #include <asfproject/wave_file.h>
 #include <bit>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -48,11 +51,17 @@ bool WaveFile::load(const std::string &file_path)
   return decodeWaveFile();
 }
 
+bool WaveFile::save(const std::string &file_path) const
+{
+  std::vector<uint8_t> data{};
+  return encodeWaveFile(data) && writeDataToFile(data, file_path);
+}
+
 std::vector<double> WaveFile::getPCMData() const { return m_pcm_data; };
 
-int WaveFile::getSampleRate() const { return m_sample_rate; }
+int32_t WaveFile::getSampleRate() const { return m_sample_rate; }
 
-int WaveFile::getNumChannels() const { return m_num_channels; }
+int16_t WaveFile::getNumChannels() const { return m_num_channels; }
 
 double WaveFile::getDurationSeconds() const { return double(getNumSamplesPerChannel()) / double(m_sample_rate); }
 
@@ -60,7 +69,7 @@ bool WaveFile::isMono() const { return getNumChannels() == 1; }
 
 bool WaveFile::isStero() const { return getNumChannels() == 2; }
 
-int WaveFile::getBitDepth() const { return m_bit_depth; }
+int16_t WaveFile::getBitDepth() const { return m_bit_depth; }
 
 int WaveFile::getNumSamplesPerChannel() const
 {
@@ -274,6 +283,128 @@ Either<size_t, std::string> WaveFile::getIdxOfChunk(const std::string &ck_id, si
   return right(msg);
 }
 
+
+bool WaveFile::writeDataToFile(std::vector<uint8_t> &data, const std::string &file_path)
+{
+  std::ofstream out_file(file_path, std::ios::binary);
+  if (!out_file.is_open()) { return false; }
+
+  out_file.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));//NOLINT
+  out_file.close();
+  return true;
+}
+
+bool WaveFile::encodeWaveFile(std::vector<uint8_t> &data) const
+{
+  encodeHeaderChunk(data);
+  encodeFmtChunk(data);
+  encodeDataChunk(data);
+
+  return true;
+}
+
+
+void WaveFile::encodeHeaderChunk(std::vector<uint8_t> &data) const
+{
+  int32_t data_ck_size = getNumSamplesPerChannel() * (getNumChannels() * m_bit_depth / 8);// NOLINT
+  int32_t fmt_ck_size = m_format_tag == int16_t(WaveFormat::PCM) ? 16 : 18;// NOLINT
+
+  addStringToData(data, "RIFF");
+
+  int32_t header_ck_size = 4 + fmt_ck_size + 8 + 8 + data_ck_size;// NOLINT
+  addInt32ToData(data, header_ck_size);
+
+  addStringToData(data, "WAVE");
+}
+
+void WaveFile::encodeFmtChunk(std::vector<uint8_t> &data) const
+{
+  int32_t fmt_ck_size = m_format_tag == int16_t(WaveFormat::PCM) ? 16 : 18;// NOLINT
+
+  // ckID	4	Chunk ID: "fmt "
+  addStringToData(data, "fmt ");
+  // cksize	4	Chunk size: 16, 18 or 40
+  addInt32ToData(data, fmt_ck_size);
+  // wFormatTag	2	Format code
+  addInt16ToData(data, m_format_tag);
+  // nChannels	2	Number of interleaved channels
+  addInt16ToData(data, getNumChannels());
+  // 	nSamplesPerSec	4	Sampling rate (blocks per second)
+  addInt32ToData(data, m_sample_rate);
+  // nAvgBytesPerSec	4	Data rate
+  addInt32ToData(data, m_sample_rate * (m_bit_depth / 8) * getNumChannels());// NOLINT
+  // nBlockAlign	2	Data block size (bytes)
+  addInt16ToData(data, (m_bit_depth / 8) * getNumChannels());// NOLINT
+  // wBitsPerSample	2	Bits per sample
+  addInt16ToData(data, m_bit_depth);
+}
+
+void WaveFile::encodeDataChunk(std::vector<uint8_t> &data) const
+{
+  // ckID	4	Chunk ID: "data"
+  addStringToData(data, "data");
+  // cksize	4	Chunk size: n
+  int32_t data_ck_size = getNumSamplesPerChannel() * (getNumChannels() * m_bit_depth / 8);// NOLINT
+  addInt32ToData(data, data_ck_size);// NOLINT
+
+  // 	sampled data	n	Samples
+  if (m_bit_depth == 8) {// NOLINT
+    encode8Bits(data);
+  } else if (m_bit_depth == 16) {// NOLINT
+    encode16Bits(data);
+  } else if (m_bit_depth == 24) {// NOLINT
+    assert(true && "Not implemented!");
+  } else if (m_bit_depth == 32) {// NOLINT
+    assert(true && "Not implemented!");
+  }
+}
+
+void WaveFile::encode8Bits(std::vector<uint8_t> &data) const
+{
+  if (getNumChannels() == 1) {
+    for (const double sampleDbl : m_pcm_data) {
+      const uint8_t sample =
+        static_cast<uint8_t>(std::round(std::max(static_cast<double>(std::numeric_limits<uint8_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<uint8_t>::max()), sampleDbl))));
+      data.push_back(sample);
+    }
+  } else {
+    throw std::domain_error("That quantity of channels is not supported yet!");
+  }
+}
+
+void WaveFile::encode16Bits(std::vector<uint8_t> &data) const
+{
+  if (getNumChannels() == 1) {
+    for (const double sampleDbl : m_pcm_data) {
+      const int16_t sample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), sampleDbl))));
+
+      data.push_back(static_cast<uint8_t>(sample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((sample >> 8) & 0xFF));// NOLINT
+    }
+  } else if (getNumChannels() == 2) {
+    for (size_t i = 0; i < m_pcm_data.size(); i += 2) {
+      const int16_t leftSample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), m_pcm_data[i]))));
+
+      const int16_t rightSample =
+        static_cast<int16_t>(std::round(std::max(static_cast<double>(std::numeric_limits<int16_t>::min()),
+          std::min(static_cast<double>(std::numeric_limits<int16_t>::max()), m_pcm_data[i + 1]))));
+
+      data.push_back(static_cast<uint8_t>(leftSample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((leftSample >> 8) & 0xFF));// NOLINT
+
+      data.push_back(static_cast<uint8_t>(rightSample & 0xFF));// NOLINT
+      data.push_back(static_cast<uint8_t>((rightSample >> 8) & 0xFF));// NOLINT
+    }
+  } else {
+    throw std::domain_error("That quantity of channels is unsupported.");
+  }
+}
+
 int32_t convFourBytesToInt32(std::span<uint8_t> data, std::endian endianness)
 {
   int32_t result = -1;
@@ -300,4 +431,58 @@ int16_t convTwoBytesToInt16(std::span<uint8_t> data, std::endian endianness)
   return result;
 }
 
+void addStringToData(std::vector<uint8_t> &data, const std::string &str)
+{
+  for (const char val : str) { data.push_back(uint8_t(val)); }
+}
+
+void addInt32ToData(std::vector<uint8_t> &data, int32_t value)
+{
+  const std::array<uint8_t, 4> bytes{ convInt32ToFourBytes(value) };
+  for (const auto &val : bytes) { data.push_back(val); }
+}
+
+void addInt16ToData(std::vector<uint8_t> &data, int16_t value)
+{
+  const std::array<uint8_t, 2> bytes{ convInt16ToTwoBytes(value) };
+  for (const auto &val : bytes) { data.push_back(val); }
+}
+
+std::array<uint8_t, 4> convInt32ToFourBytes(int32_t value, std::endian endianness)
+{
+  std::array<uint8_t, 4> bytes{};
+
+  // NOLINTBEGIN
+  if (endianness == std::endian::little) {
+    bytes[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
+    bytes[2] = static_cast<uint8_t>((value >> 16) & 0xFF);
+    bytes[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[0] = static_cast<uint8_t>(value & 0xFF);
+  } else {
+    bytes[0] = static_cast<uint8_t>((value >> 24) & 0xFF);
+    bytes[1] = static_cast<uint8_t>((value >> 16) & 0xFF);
+    bytes[2] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[3] = static_cast<uint8_t>(value & 0xFF);
+  }
+  // NOLINTEND
+
+  return bytes;
+}
+
+std::array<uint8_t, 2> convInt16ToTwoBytes(int16_t value, std::endian endianness)
+{
+  std::array<uint8_t, 2> bytes{};
+
+  // NOLINTBEGIN
+  if (endianness == std::endian::little) {
+    bytes[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[0] = static_cast<uint8_t>(value & 0xFF);
+  } else {
+    bytes[0] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    bytes[1] = static_cast<uint8_t>(value & 0xFF);
+  }
+  // NOLINTEND
+
+  return bytes;
+}
 }// namespace asf

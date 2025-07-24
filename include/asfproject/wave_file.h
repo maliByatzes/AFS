@@ -53,13 +53,14 @@ public:
   ~WaveFile() override = default;
 
   bool load(const std::string &file_path) override;
+  [[nodiscard]] bool save(const std::string &file_path) const override;
   [[nodiscard]] std::vector<double> getPCMData() const override;
-  [[nodiscard]] int getSampleRate() const override;
-  [[nodiscard]] int getNumChannels() const override;
+  [[nodiscard]] int32_t getSampleRate() const override;
+  [[nodiscard]] int16_t getNumChannels() const override;
   [[nodiscard]] double getDurationSeconds() const override;
   [[nodiscard]] bool isMono() const override;
   [[nodiscard]] bool isStero() const override;
-  [[nodiscard]] int getBitDepth() const override;
+  [[nodiscard]] int16_t getBitDepth() const override;
   [[nodiscard]] int getNumSamplesPerChannel() const override;
 
 private:
@@ -74,11 +75,26 @@ private:
   void decode16Bits(const WaveFmtChunk &, const std::vector<uint8_t> &);
   bool decodeSamples(const WaveFmtChunk &, WaveDataChunk &);
   bool decodeWaveFile();
+
+  
+  void encodeHeaderChunk(std::vector<uint8_t> &) const;
+  void encodeFmtChunk(std::vector<uint8_t> &) const;
+  void encodeDataChunk(std::vector<uint8_t> &) const;
+  void encode8Bits(std::vector<uint8_t> &) const;
+  void encode16Bits(std::vector<uint8_t> &) const;
+
+  static bool writeDataToFile(std::vector<uint8_t> &, const std::string &);
+  bool encodeWaveFile(std::vector<uint8_t> &) const;
 };
 
 // TODO: Move these utilities functions to audio_engine.h file
 int32_t convFourBytesToInt32(std::span<uint8_t>, std::endian = std::endian::little);
 int16_t convTwoBytesToInt16(std::span<uint8_t>, std::endian = std::endian::little);
+void addStringToData(std::vector<uint8_t> &, const std::string &);
+void addInt32ToData(std::vector<uint8_t> &, int32_t);
+void addInt16ToData(std::vector<uint8_t> &, int16_t);
+std::array<uint8_t, 4> convInt32ToFourBytes(int32_t, std::endian = std::endian::little);
+std::array<uint8_t, 2> convInt16ToTwoBytes(int16_t, std::endian = std::endian::little);
 
 }// namespace asf
 

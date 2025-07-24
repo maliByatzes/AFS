@@ -20,7 +20,8 @@ public:
   ~AudioEngine() = default;
 
   static std::unique_ptr<IAudioFile> loadAudioFile(const std::string &);
-  bool saveAudioFile(const IAudioFile &, const std::string &);
+  static bool saveAudioFile(const IAudioFile &, const std::string &);
+
   // void play(IAudioFile &);
   std::vector<double> getPCMData(IAudioFile &);
 };

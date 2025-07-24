@@ -38,6 +38,12 @@ int main()
     std::cout << "Duration: " << wave_audio->getDurationSeconds() << "\n";
   } else {
     std::cerr << "Failed to load WAV file.\n";
+    return EXIT_FAILURE;
+  }
+
+  if (!wave_audio->save("audio/1hertz_ff.wav")) {
+    std::cerr << "Failed to save data to file.\n";
+    return EXIT_FAILURE;
   }
 
   return 0;
