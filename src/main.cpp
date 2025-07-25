@@ -27,24 +27,20 @@ int main()
 {
   const AudioEngine engine;
 
-  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/1hertz.wav");
-  if (wave_audio) {
-    std::cout << "Loaded WAV file.\n";
-    std::cout << "Print summary:\n";
-    std::cout << "Sample rate: " << wave_audio->getSampleRate() << "\n";
-    std::cout << "Number of channels: " << wave_audio->getNumChannels() << "\n";
-    std::cout << "Bit depth: " << wave_audio->getBitDepth() << "\n";
-    std::cout << "Number of samples: " << wave_audio->getNumSamplesPerChannel() << "\n";
-    std::cout << "Duration: " << wave_audio->getDurationSeconds() << "\n";
-  } else {
+  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/4k_hertz_stereo.wav");
+  if (!wave_audio) {
     std::cerr << "Failed to load WAV file.\n";
     return EXIT_FAILURE;
   }
 
-  if (!engine.saveAudioFile(*wave_audio, "audio/1hertz_ff2.wav")) {
-    std::cerr << "Failed to save data to file.\n";
-    return EXIT_FAILURE;
-  }
+  auto print_pcm_data = [&wave_audio]() {
+    std::ranges::for_each(wave_audio->getPCMData(), [](double sample) { std::cout << sample << "\n"; });
+  };
+
+  // Step 1: Change stereo to mono by simple averaging
+  engine.stereoToMono(*wave_audio);
+  
+  print_pcm_data();
 
   return 0;
 }

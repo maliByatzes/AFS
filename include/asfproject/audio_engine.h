@@ -23,7 +23,8 @@ public:
   static bool saveAudioFile(const IAudioFile &, const std::string &);
 
   // void play(IAudioFile &);
-  std::vector<double> getPCMData(IAudioFile &);
+  static std::vector<double> getPCMData(IAudioFile &);
+  static void stereoToMono(IAudioFile &);
 };
 
 }// namespace asf
