@@ -40,7 +40,7 @@ int main()
   // Step 1: Change stereo to mono by simple averaging
   engine.stereoToMono(*wave_audio);
   
-  print_pcm_data();
+  // Step 2: Apply low pass filter
 
   return 0;
 }

@@ -24,7 +24,9 @@ public:
 
   // void play(IAudioFile &);
   static std::vector<double> getPCMData(IAudioFile &);
+  static void normalizePCMData(IAudioFile &);
   static void stereoToMono(IAudioFile &);
+  static void applyLowPassFilter(IAudioFile &);
 };
 
 }// namespace asf
