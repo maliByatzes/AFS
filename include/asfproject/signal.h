@@ -13,6 +13,7 @@ class Wave;
 constexpr int DEF_FRAMERATE = 11025;
 constexpr float DEF_FREQ = 440.0;
 constexpr float DEF_AMP = 1.0;
+constexpr float DEF_PERIOD = 0.1F;
 
 class Signal// NOLINT
 {
@@ -21,7 +22,7 @@ public:
 
   [[nodiscard]] virtual std::unique_ptr<Signal> clone() const = 0;
   [[nodiscard]] Wave makeWave(float duration = 1.0, float start = 0, int framerate = DEF_FRAMERATE) const;
-  void plot(int framerate = DEF_FRAMERATE);
+  void plot(int framerate = DEF_FRAMERATE) const;
   [[nodiscard]] virtual float period() const;
   virtual std::vector<float> evaluate(const std::vector<float> &ts) const = 0;// NOLINT
 };
