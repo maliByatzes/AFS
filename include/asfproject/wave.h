@@ -1,14 +1,11 @@
 #ifndef WAVE_H_
 #define WAVE_H_
 
-#include <asfproject/signal.h>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>
 #include <map>
 
 namespace asf {
-
-class Signal;
 
 class Wave
 {
@@ -36,7 +33,7 @@ public:
   [[nodiscard]] Wave cumsum() const;
   [[nodiscard]] Wave diff() const;
   void findIndex(float time) const;
-  float getXFactor(std::map<std::string, float> &options) const;
+  static float getXFactor(std::map<std::string, float> &options);
   void hamming() const;
   void makeAudio() const;
   void makeDCT() const;
@@ -44,7 +41,7 @@ public:
   void play(std::string &filename) const;
   void plot(std::map<std::string, float> options={}) const;
   void plotVLines(std::map<std::string, float> &options) const;
-  [[nodiscard]] Signal quantize(float bound, float dtype) const;
+  // [[nodiscard]] Signal quantize(float bound, float dtype) const;
   void roll(int roll) const;
   void scale(float factor) const;
   [[nodiscard]] Wave segment(float start, float duration) const;

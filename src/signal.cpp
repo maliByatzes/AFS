@@ -3,6 +3,7 @@
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
 #include <asfproject/signal.h>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -11,19 +12,19 @@
 
 namespace asf {
 
-Wave Signal::makeWave(float duration, float start, int framerate) const
+Wave Signal::makeWave(float duration, float start, int framerate) const//NOLINT
 {
-  float size = std::round(duration * float(framerate));
+  const float size = std::round(duration * float(framerate));
   nc::NdArray<float> time_values = nc::arange<float>(size);
   std::ranges::for_each(time_values, [&](float &val) { val = start + val / float(framerate); });
-  nc::NdArray<float> ys = evaluate(time_values);
-  return Wave(ys, time_values, framerate);
+  const nc::NdArray<float> ys = evaluate(time_values);
+  return { ys, time_values, framerate };
 }
 
 void Signal::plot(int framerate) const
 {
-  float duration = period() * 3;
-  Wave wave = makeWave(duration, 0.0f, framerate);
+  const float duration = period() * 3;
+  const Wave wave = makeWave(duration, 0.0F, framerate);
   wave.plot();
 }
 

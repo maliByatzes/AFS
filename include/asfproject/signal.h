@@ -1,6 +1,7 @@
 #ifndef SIGNAL_H_
 #define SIGNAL_H_
 
+#include <asfproject/wave.h>
 #include <cmath>
 #include <functional>
 #include <memory>
