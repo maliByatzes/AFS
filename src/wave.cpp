@@ -4,7 +4,6 @@
 #include <map>
 #include <string>
 #include <vector>
-//#include <matplot/matplot.h>
 #include <matplot/freestanding/plot.h>
 
 namespace asf {

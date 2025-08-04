@@ -1,5 +1,7 @@
 #include <NumCpp/Core/Constants.hpp>
 #include <NumCpp/Functions/arange.hpp>
+#include <NumCpp/Functions/cos.hpp>
+#include <NumCpp/Functions/sin.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
 #include <asfproject/signal.h>
@@ -96,6 +98,21 @@ float SumSignal::period() const
   }
 
   return maxp > 0 ? maxp : DEF_PERIOD;// NOLINT
+}
+
+std::unique_ptr<Sinusoid> cosSignal(float freq, float amp, float offset)
+{
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::cos));  
+}
+
+std::unique_ptr<Sinusoid> sinSignal(float freq, float amp, float offset)
+{
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::sin));  
+}
+
+std::unique_ptr<Signal> operator+(const Signal &sig1, const Signal &sig2)
+{
+  return std::make_unique<SumSignal>(sig1.clone(), sig2.clone());
 }
 
 }// namespace asf

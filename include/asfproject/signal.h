@@ -64,6 +64,12 @@ public:
   [[nodiscard]] float period() const override;
 };
 
+// Standalone functions
+
+std::unique_ptr<Sinusoid> cosSignal(float freq = DEF_FREQ, float amp = DEF_AMP, float offset = 0);
+std::unique_ptr<Sinusoid> sinSignal(float freq = DEF_FREQ, float amp = DEF_AMP, float offset = 0);
+std::unique_ptr<Signal> operator+(const Signal &sig1, const Signal &sig2);
+
 }// namespace asf
 
 #endif
