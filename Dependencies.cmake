@@ -6,4 +6,8 @@ function(asfproject_setup_dependencies)
     cpmaddpackage("gh:alandefreitas/matplotplusplus@1.2.2")
   endif()
 
+  if(NOT TARGET NumCpp::NumCpp)
+    find_package(NumCpp REQUIRED)
+  endif()
+
 endfunction()

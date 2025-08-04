@@ -1,4 +1,4 @@
-add_executable(ASF main.cpp fft.cpp audio_engine.cpp wave_file.cpp signal.cpp)
+add_executable(ASF main.cpp fft.cpp audio_engine.cpp wave_file.cpp signal.cpp wave.cpp)
 
 target_link_libraries(
   ASF
@@ -10,6 +10,7 @@ target_link_system_libraries(
   PRIVATE
           matplot
           fftw3
+          NumCpp::NumCpp
 )
 
 target_include_directories(ASF ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>

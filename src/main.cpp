@@ -33,9 +33,10 @@ int main()
     return EXIT_FAILURE;
   }
 
+  /*
   auto print_pcm_data = [&wave_audio]() {
     std::ranges::for_each(wave_audio->getPCMData(), [](double sample) { std::cout << sample << "\n"; });
-  };
+  };*/
 
   // Step 1: Change stereo to mono by simple averaging
   engine.stereoToMono(*wave_audio);

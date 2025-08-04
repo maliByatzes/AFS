@@ -70,10 +70,10 @@ void AudioEngine::normalizePCMData(IAudioFile &audio_file)
 
   audio_file.setPCMData(normalized_pcm_data, audio_file.getSampleRate(), audio_file.getNumChannels());
 }
-
+/*
 void AudioEngine::applyLowPassFilter(IAudioFile &audio_file)
 {
   
-}
+}*/
 
 }// namespace asf

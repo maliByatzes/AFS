@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <NumCpp.hpp>
 
 namespace asf {
 
@@ -24,7 +25,7 @@ public:
   [[nodiscard]] Wave makeWave(float duration = 1.0, float start = 0, int framerate = DEF_FRAMERATE) const;
   void plot(int framerate = DEF_FRAMERATE) const;
   [[nodiscard]] virtual float period() const;
-  virtual std::vector<float> evaluate(const std::vector<float> &ts) const = 0;// NOLINT
+  virtual nc::NdArray<float> evaluate(const nc::NdArray<float> &ts) const = 0;// NOLINT
 };
 
 class Sinusoid : public Signal//NOLINT
@@ -43,7 +44,7 @@ public:
   Sinusoid(const Sinusoid &other);
 
   [[nodiscard]] std::unique_ptr<Signal> clone() const override;
-  std::vector<float> evaluate(const std::vector<float> &ts) const override;//NOLINT
+  nc::NdArray<float> evaluate(const nc::NdArray<float> &ts) const override;//NOLINT
   [[nodiscard]] float period() const override;
 };
 
@@ -58,16 +59,9 @@ public:
   SumSignal(const SumSignal &other);
 
   [[nodiscard]] std::unique_ptr<Signal> clone() const override;
-  std::vector<float> evaluate(const std::vector<float> &ts) const override;//NOLINT 
+  nc::NdArray<float> evaluate(const nc::NdArray<float> &ts) const override;//NOLINT 
   [[nodiscard]] float period() const override;
 };
-
-// NOTE: Just throw these around here, I'll find a suitable spot for them.
-template<typename T>
-std::vector<T> arange(T stop);
-
-template<typename T>
-std::vector<T> arange(T start, T stop, T step = 1);
 
 }// namespace asf
 
