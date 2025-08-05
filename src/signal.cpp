@@ -14,7 +14,7 @@
 
 namespace asf {
 
-Wave Signal::makeWave(float duration, float start, int framerate) const//NOLINT
+Wave Signal::makeWave(float duration, float start, int framerate) const// NOLINT
 {
   const float size = std::round(duration * float(framerate));
   nc::NdArray<float> time_values = nc::arange<float>(size);
@@ -45,13 +45,13 @@ std::unique_ptr<Signal> Sinusoid::clone() const { return std::make_unique<Sinuso
 
 nc::NdArray<float> Sinusoid::evaluate(const nc::NdArray<float> &ts) const// NOLINT
 {
-  nc::NdArray<float> phases(ts.size());
-  for (int i = 0; i < int(ts.size()); ++i) {
-    phases[i] = float(nc::constants::twoPi) * m_freq * ts[i] + m_offset;// NOLINT
+  std::vector<float> phases(ts.size());
+  for (size_t i = 0; i < ts.size(); ++i) {
+    phases[i] = float(nc::constants::twoPi) * m_freq * ts[int(i)] + m_offset;// NOLINT
   }
-  nc::NdArray<float> ys(phases.size());
-  for (int i = 0; i < int(phases.size()); ++i) { ys[i] = m_amp * m_func(phases[i]); }
-  return ys;
+  std::vector<float> ys(phases.size());
+  for (size_t i = 0; i < phases.size(); ++i) { ys[i] = m_amp * m_func(phases[i]); }
+  return static_cast<nc::NdArray<float>>(ys);
 }
 
 float Sinusoid::period() const { return 1.0F / m_freq; }
@@ -102,12 +102,12 @@ float SumSignal::period() const
 
 std::unique_ptr<Sinusoid> cosSignal(float freq, float amp, float offset)
 {
-  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::cos));  
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::cos));
 }
 
 std::unique_ptr<Sinusoid> sinSignal(float freq, float amp, float offset)
 {
-  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::sin));  
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::sin));
 }
 
 std::unique_ptr<Signal> operator+(const Signal &sig1, const Signal &sig2)

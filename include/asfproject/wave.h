@@ -44,7 +44,7 @@ public:
   // [[nodiscard]] Signal quantize(float bound, float dtype) const;
   void roll(int roll) const;
   void scale(float factor) const;
-  [[nodiscard]] Wave segment(float start, float duration) const;
+  [[nodiscard]] Wave segment(float start=-1, float duration=-1) const;
   void shift(float shift) const;
   void slice(int i, int j) const;//NOLINT
   void truncate(int index) const;
@@ -55,6 +55,10 @@ public:
   [[nodiscard]] float period() const;
   [[nodiscard]] float start() const;
   [[nodiscard]] float end() const; 
+
+  [[nodiscard]] nc::NdArray<float> getYs() const;
+  [[nodiscard]] nc::NdArray<float> getTs() const;
+  [[nodiscard]] int getFramerate() const;
 };
 
 }// namespace asf

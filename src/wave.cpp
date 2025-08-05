@@ -2,9 +2,9 @@
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/wave.h>
 #include <map>
+#include <matplot/freestanding/plot.h>
 #include <string>
 #include <vector>
-#include <matplot/freestanding/plot.h>
 
 namespace asf {
 
@@ -12,13 +12,14 @@ Wave::Wave(const nc::NdArray<float> &ys, const nc::NdArray<float> &ts, int frame
   : m_ys(ys), m_ts(ts), m_framerate(framerate)
 {}
 
-Wave::Wave(const nc::NdArray<std::complex<float>> &ys, const nc::NdArray<float> &ts, int framerate)//NOLINT
+Wave::Wave(const nc::NdArray<std::complex<float>> &ys, const nc::NdArray<float> &ts, int framerate)// NOLINT
   : m_ys(nc::real(ys)), m_ts(ts), m_framerate(framerate)
 {}
 
-float Wave::getXFactor(std::map<std::string, float> &options) {
+float Wave::getXFactor(std::map<std::string, float> &options)
+{
   float xfactor = 1.0;
-  auto it = options.find("xfactor");//NOLINT
+  auto it = options.find("xfactor");// NOLINT
   if (it != options.end()) {
     xfactor = it->second;
     options.erase(it);
@@ -38,5 +39,21 @@ void Wave::plot(std::map<std::string, float> options) const
   matplot::show();
   // NOTE: Ignore the options for now...
 }
+
+void Wave::findIndex(float time) const
+{
+  
+}
+
+Wave Wave::segment(float start, float duration) const
+{
+   
+}
+
+nc::NdArray<float> Wave::getYs() const { return m_ys; }
+
+nc::NdArray<float> Wave::getTs() const { return m_ts; }
+
+int Wave::getFramerate() const { return m_framerate; }
 
 }// namespace asf
