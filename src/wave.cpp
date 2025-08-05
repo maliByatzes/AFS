@@ -1,9 +1,13 @@
+#include "asfproject/wave_file.h"
 #include <NumCpp/Core/Enums.hpp>
+#include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/concatenate.hpp>
 #include <NumCpp/Functions/flip.hpp>
 #include <NumCpp/Functions/linspace.hpp>
+#include <NumCpp/Functions/max.hpp>
 #include <NumCpp/Functions/ones.hpp>
 #include <NumCpp/Functions/real.hpp>
+#include <NumCpp/Functions/round.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
 #include <asfproject/wave.h>
@@ -11,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <map>
 #include <matplot/freestanding/plot.h>
 #include <optional>
@@ -20,17 +25,17 @@
 
 namespace asf {
 
-Wave::Wave(const nc::NdArray<float> &ys, const nc::NdArray<float> &ts, int framerate)// NOLINT
+Wave::Wave(const nc::NdArray<double> &ys, const nc::NdArray<double> &ts, int framerate)// NOLINT
   : m_ys(ys), m_ts(ts), m_framerate(framerate)
 {}
 
-Wave::Wave(const nc::NdArray<std::complex<float>> &ys, const nc::NdArray<float> &ts, int framerate)// NOLINT
+Wave::Wave(const nc::NdArray<std::complex<double>> &ys, const nc::NdArray<double> &ts, int framerate)// NOLINT
   : m_ys(nc::real(ys)), m_ts(ts), m_framerate(framerate)
 {}
 
-float Wave::getXFactor(std::map<std::string, float> &options)
+double Wave::getXFactor(std::map<std::string, double> &options)
 {
-  float xfactor = 1.0;
+  double xfactor = 1.0;
   auto it = options.find("xfactor");// NOLINT
   if (it != options.end()) {
     xfactor = it->second;
@@ -39,29 +44,29 @@ float Wave::getXFactor(std::map<std::string, float> &options)
   return xfactor;
 }
 
-void Wave::plot(std::map<std::string, float> options) const
+void Wave::plot(std::map<std::string, double> options) const
 {
-  const float xfactor = getXFactor(options);
-  nc::NdArray<float> ts_scaled = xfactor * m_ts;
+  const double xfactor = getXFactor(options);
+  nc::NdArray<double> ts_scaled = xfactor * m_ts;
 
-  const std::vector<float> ts_vec(ts_scaled.begin(), ts_scaled.end());
-  const std::vector<float> ys_vec(m_ys.begin(), m_ys.end());
+  const std::vector<double> ts_vec(ts_scaled.begin(), ts_scaled.end());
+  const std::vector<double> ys_vec(m_ys.begin(), m_ys.end());
 
   matplot::plot(ts_vec, ys_vec, "--");
   matplot::show();
   // NOTE: Ignore the options for now...
 }
 
-int Wave::findIndex(float time) const
+int Wave::findIndex(double time) const
 {
   const size_t len = m_ts.size();
-  const float start = this->start();
-  const float end = this->end();
-  auto idx = std::round(float(len - 1) * (time - start) / (end - start));
+  const double start = this->start();
+  const double end = this->end();
+  auto idx = std::round(double(len - 1) * (time - start) / (end - start));
   return int(idx);
 }
 
-Wave Wave::segment(std::optional<float> start, std::optional<float> duration) const// NOLINT
+Wave Wave::segment(std::optional<double> start, std::optional<double> duration) const// NOLINT
 {
   int idx = -1;
 
@@ -84,60 +89,86 @@ Wave Wave::segment(std::optional<float> start, std::optional<float> duration) co
 
 Wave Wave::slice(int i, int j) const// NOLINT
 {
-  std::vector<float> ys(m_ys.begin() + i, m_ys.begin() + j);
-  std::vector<float> ts(m_ts.begin() + i, m_ts.begin() + j);// NOLINT
+  std::vector<double> ys(m_ys.begin() + i, m_ys.begin() + j);
+  std::vector<double> ts(m_ts.begin() + i, m_ts.begin() + j);// NOLINT
   return { ys, ts, m_framerate };
 }
 
-void Wave::apodize(float denom, float duration)// NOLINT
+void Wave::apodize(double denom, double duration)// NOLINT
 {
   m_ys = ::asf::apodize(m_ys, m_framerate, denom, duration);
 }
 
-void Wave::normalize(float amp) { m_ys = ::asf::normalize(m_ys, amp); }
+void Wave::normalize(double amp) { m_ys = ::asf::normalize(m_ys, amp); }
 
-float Wave::start() const { return m_ts.front(); }
+template<typename dtype> nc::NdArray<double> Wave::quantize(double bound) const
+{
+  return ::asf::quantize<dtype>(m_ys, bound);
+}
 
-float Wave::end() const { return m_ts.back(); }
+void Wave::write(const std::string &filename) const
+{
+  std::cout << "Writing " << filename << "\n";
+  WaveFile wfile;
+  wfile.setPCMData(m_ys.toStlVector(), 44100, 1);// NOLINT
+  if (!wfile.save(filename)) { throw std::runtime_error("Could not save the wav file."); }
+}
 
-nc::NdArray<float> Wave::getYs() const { return m_ys; }
+double Wave::start() const { return m_ts.front(); }
 
-nc::NdArray<float> Wave::getTs() const { return m_ts; }
+double Wave::end() const { return m_ts.back(); }
+
+nc::NdArray<double> Wave::getYs() const { return m_ys; }
+
+nc::NdArray<double> Wave::getTs() const { return m_ts; }
 
 int Wave::getFramerate() const { return m_framerate; }
 
-nc::NdArray<float> normalize(const nc::NdArray<float> &ys, float amp)
+nc::NdArray<double> normalize(const nc::NdArray<double> &ys, double amp)
 {
-  const float high = std::abs(*std::ranges::max_element(ys));
-  const float low = std::abs(*std::ranges::min_element(ys));
+  const double high = std::abs(*std::ranges::max_element(ys));
+  const double low = std::abs(*std::ranges::min_element(ys));
   return amp * ys / std::max(high, low);
 }
 
-nc::NdArray<float> apodize(const nc::NdArray<float> &ys, int framerate, float denom, float duration)// NOLINT
+nc::NdArray<double> apodize(const nc::NdArray<double> &ys, int framerate, double denom, double duration)// NOLINT
 {
   const long len = ys.size();
 
   if (len < 2
               * std::min(
-                static_cast<long>(float(len) / denom), static_cast<long>(std::round(duration * float(framerate))))) {
+                static_cast<long>(double(len) / denom), static_cast<long>(std::round(duration * double(framerate))))) {
     throw std::invalid_argument("Signal is too short to be apodized with the given parameters.");
   }
 
   const long frac_seg = len / static_cast<long>(denom);
-  const long time_seg = static_cast<long>(std::round(duration * float(framerate)));
+  const long time_seg = static_cast<long>(std::round(duration * double(framerate)));
   const long min_seg = std::min(frac_seg, time_seg);
 
   if (min_seg == 0) { return ys; }
 
-  const nc::NdArray<float> arr1 = nc::linspace<float>(0.0, 1.0, uint32_t(min_seg));
-  const nc::NdArray<float> arr2 = nc::ones<float>(uint32_t(float(len) - 2.0F * float(min_seg)));// NOLINT
-  const nc::NdArray<float> tmp_arr3 = nc::linspace<float>(0.0, 1.0, uint32_t(min_seg));
-  const nc::NdArray<float> arr3 = nc::flip(tmp_arr3, nc::Axis::ROW);
+  const nc::NdArray<double> arr1 = nc::linspace<double>(0.0, 1.0, uint32_t(min_seg));
+  const nc::NdArray<double> arr2 = nc::ones<double>(uint32_t(double(len) - 2.0 * double(min_seg)));// NOLINT
+  const nc::NdArray<double> tmp_arr3 = nc::linspace<double>(0.0, 1.0, uint32_t(min_seg));
+  const nc::NdArray<double> arr3 = nc::flip(tmp_arr3, nc::Axis::ROW);
 
-  const std::vector<nc::NdArray<float>> win_components = { arr1, arr2, arr3 };
-  const nc::NdArray<float> window = nc::concatenate(win_components);
+  const std::vector<nc::NdArray<double>> win_components = { arr1, arr2, arr3 };
+  const nc::NdArray<double> window = nc::concatenate(win_components);
 
   return ys * window;
+}
+
+template<typename dtype> nc::NdArray<dtype> quantize(const nc::NdArray<double> &ys, double bound)// NOLINT
+{
+  const double max_abs_val = nc::max(nc::abs(ys)).item();
+
+  if (max_abs_val > 1.0) {
+    std::cerr << "Warning: normalizing before quantizing.\n";
+    const nc::NdArray<double> norm_ys = ::asf::normalize(ys);
+    return nc::round(norm_ys * bound).astype<dtype>();
+  }
+
+  return nc::round(ys * bound).astype<dtype>();
 }
 
 }// namespace asf

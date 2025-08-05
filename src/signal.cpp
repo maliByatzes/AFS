@@ -14,26 +14,26 @@
 
 namespace asf {
 
-Wave Signal::makeWave(float duration, float start, int framerate) const// NOLINT
+Wave Signal::makeWave(double duration, double start, int framerate) const// NOLINT
 {
-  const float size = std::round(duration * float(framerate));
-  nc::NdArray<float> time_values = nc::arange<float>(size);
-  std::ranges::for_each(time_values, [&](float &val) { val = start + val / float(framerate); });
-  const nc::NdArray<float> ys = evaluate(time_values);
+  const double size = std::round(duration * double(framerate));
+  nc::NdArray<double> time_values = nc::arange<double>(size);
+  std::ranges::for_each(time_values, [&](double &val) { val = start + val / double(framerate); });
+  const nc::NdArray<double> ys = evaluate(time_values);
   return { ys, time_values, framerate };
 }
 
 void Signal::plot(int framerate) const
 {
-  const float duration = period() * 3;
-  const Wave wave = makeWave(duration, 0.0F, framerate);
+  const double duration = period() * 3;
+  const Wave wave = makeWave(duration, 0.0, framerate);
   wave.plot();
 }
 
-float Signal::period() const { return DEF_PERIOD; }// NOLINT
+double Signal::period() const { return DEF_PERIOD; }// NOLINT
 
 
-Sinusoid::Sinusoid(float freq, float amp, float offset, std::function<float(float)> func)// NOLINT
+Sinusoid::Sinusoid(double freq, double amp, double offset, std::function<double(double)> func)// NOLINT
   : m_freq(freq), m_amp(amp), m_offset(offset), m_func(std::move(func))
 {}
 
@@ -43,18 +43,18 @@ Sinusoid::Sinusoid(const Sinusoid &other)
 
 std::unique_ptr<Signal> Sinusoid::clone() const { return std::make_unique<Sinusoid>(*this); }
 
-nc::NdArray<float> Sinusoid::evaluate(const nc::NdArray<float> &ts) const// NOLINT
+nc::NdArray<double> Sinusoid::evaluate(const nc::NdArray<double> &ts) const// NOLINT
 {
-  std::vector<float> phases(ts.size());
+  std::vector<double> phases(ts.size());
   for (size_t i = 0; i < ts.size(); ++i) {
-    phases[i] = float(nc::constants::twoPi) * m_freq * ts[int(i)] + m_offset;// NOLINT
+    phases[i] = double(nc::constants::twoPi) * m_freq * ts[int(i)] + m_offset;// NOLINT
   }
-  std::vector<float> ys(phases.size());
+  std::vector<double> ys(phases.size());
   for (size_t i = 0; i < phases.size(); ++i) { ys[i] = m_amp * m_func(phases[i]); }
-  return static_cast<nc::NdArray<float>>(ys);
+  return static_cast<nc::NdArray<double>>(ys);
 }
 
-float Sinusoid::period() const { return 1.0F / m_freq; }
+double Sinusoid::period() const { return 1.0 / m_freq; }
 
 SumSignal::SumSignal(std::unique_ptr<Signal> sig1, std::unique_ptr<Signal> sig2)
 {
@@ -73,11 +73,11 @@ SumSignal::SumSignal(const SumSignal &other)
 
 std::unique_ptr<Signal> SumSignal::clone() const { return std::make_unique<SumSignal>(*this); }
 
-nc::NdArray<float> SumSignal::evaluate(const nc::NdArray<float> &ts) const// NOLINT
+nc::NdArray<double> SumSignal::evaluate(const nc::NdArray<double> &ts) const// NOLINT
 {
   if (m_signals.empty()) { return {}; }
 
-  nc::NdArray<float> sum = m_signals[0]->evaluate(ts);
+  nc::NdArray<double> sum = m_signals[0]->evaluate(ts);
 
   for (size_t i = 1; i < m_signals.size(); ++i) {
     if (m_signals[i]) { sum += m_signals[i]->evaluate(ts); }
@@ -86,13 +86,13 @@ nc::NdArray<float> SumSignal::evaluate(const nc::NdArray<float> &ts) const// NOL
   return sum;
 }
 
-float SumSignal::period() const
+double SumSignal::period() const
 {
   if (m_signals.empty()) {
     return DEF_PERIOD;// NOLINT
   }
 
-  float maxp = 0.0;
+  double maxp = 0.0;
   for (const auto &sig_ptr : m_signals) {
     if (sig_ptr) { maxp = std::max(maxp, sig_ptr->period()); }
   }
@@ -100,14 +100,14 @@ float SumSignal::period() const
   return maxp > 0 ? maxp : DEF_PERIOD;// NOLINT
 }
 
-std::unique_ptr<Sinusoid> cosSignal(float freq, float amp, float offset)
+std::unique_ptr<Sinusoid> cosSignal(double freq, double amp, double offset)
 {
-  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::cos));
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<double (*)(double)>(nc::cos));
 }
 
-std::unique_ptr<Sinusoid> sinSignal(float freq, float amp, float offset)
+std::unique_ptr<Sinusoid> sinSignal(double freq, double amp, double offset)
 {
-  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<float (*)(float)>(nc::sin));
+  return std::make_unique<Sinusoid>(freq, amp, offset, static_cast<double (*)(double)>(nc::sin));
 }
 
 std::unique_ptr<Signal> operator+(const Signal &sig1, const Signal &sig2)
