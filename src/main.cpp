@@ -1,5 +1,4 @@
 #include <asfproject/signal.h>
-#include <iostream>
 
 using namespace asf;
 
@@ -15,8 +14,10 @@ int main()
   // double timestep = 1.0 / wave.getFramerate() * 1000.0;//NOLINT
   // std::cout << "Timestep in ms: " << timestep << "\n";// NOLINT
 
-  float period = mixed_sig->period();
+  const float period = mixed_sig->period();
   auto segment = wave.segment(0, period * 3);
+
+  segment.plot();
   
   /*
   const AudioEngine engine;

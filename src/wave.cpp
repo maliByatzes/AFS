@@ -1,10 +1,13 @@
 #include <NumCpp/Functions/real.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/wave.h>
+#include <cmath>
+#include <cstddef>
 #include <map>
 #include <matplot/freestanding/plot.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace asf {
 
@@ -40,15 +43,46 @@ void Wave::plot(std::map<std::string, float> options) const
   // NOTE: Ignore the options for now...
 }
 
-void Wave::findIndex(float time) const
+int Wave::findIndex(float time) const
 {
-  
+  const size_t len = m_ts.size();
+  const float start = this->start();
+  const float end = this->end();
+  auto idx = std::round(float(len - 1) * (time - start) / (end - start));
+  return int(idx);
 }
 
-Wave Wave::segment(float start, float duration) const
+Wave Wave::segment(std::optional<float> start, std::optional<float> duration) const// NOLINT
 {
-   
+  int idx = -1;
+
+  if (!start.has_value()) {
+    start = m_ts[0];
+    idx = -1;
+  } else {
+    idx = this->findIndex(start.value());
+  }
+
+  int j;// NOLINT
+  if (!duration.has_value()) {
+    j = -1;
+  } else {
+    j = this->findIndex(start.value() + duration.value());
+  }
+
+  return this->slice(idx, j);
 }
+
+Wave Wave::slice(int i, int j) const// NOLINT
+{
+  std::vector<float> ys(m_ys.begin() + i, m_ys.begin() + j);
+  std::vector<float> ts(m_ts.begin() + i, m_ts.begin() + j);// NOLINT
+  return { ys, ts, m_framerate };
+}
+
+float Wave::start() const { return m_ts.front(); }
+
+float Wave::end() const { return m_ts.back(); }
 
 nc::NdArray<float> Wave::getYs() const { return m_ys; }
 

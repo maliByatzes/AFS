@@ -4,6 +4,7 @@
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>
 #include <map>
+#include <optional>
 
 namespace asf {
 
@@ -32,7 +33,7 @@ public:
   void covMat(Wave &other) const;
   [[nodiscard]] Wave cumsum() const;
   [[nodiscard]] Wave diff() const;
-  void findIndex(float time) const;
+  [[nodiscard]] int findIndex(float time) const;
   static float getXFactor(std::map<std::string, float> &options);
   void hamming() const;
   void makeAudio() const;
@@ -44,9 +45,9 @@ public:
   // [[nodiscard]] Signal quantize(float bound, float dtype) const;
   void roll(int roll) const;
   void scale(float factor) const;
-  [[nodiscard]] Wave segment(float start=-1, float duration=-1) const;
+  [[nodiscard]] Wave segment(std::optional<float> start, std::optional<float> duration) const;
   void shift(float shift) const;
-  void slice(int i, int j) const;//NOLINT
+  [[nodiscard]] Wave slice(int i, int j) const;//NOLINT
   void truncate(int index) const;
   void unbias() const;
   void window(int window) const;
