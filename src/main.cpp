@@ -17,7 +17,11 @@ int main()
   const float period = mixed_sig->period();
   auto segment = wave.segment(0, period * 3);
 
-  segment.plot();
+  // segment.plot();
+
+  wave.normalize();
+  // wave.apodize();
+  wave.plot();
   
   /*
   const AudioEngine engine;

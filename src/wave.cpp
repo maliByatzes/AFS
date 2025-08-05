@@ -1,13 +1,22 @@
+#include <NumCpp/Core/Enums.hpp>
+#include <NumCpp/Functions/concatenate.hpp>
+#include <NumCpp/Functions/flip.hpp>
+#include <NumCpp/Functions/linspace.hpp>
+#include <NumCpp/Functions/ones.hpp>
 #include <NumCpp/Functions/real.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
+#include <algorithm>
 #include <asfproject/wave.h>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <matplot/freestanding/plot.h>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <optional>
 
 namespace asf {
 
@@ -80,6 +89,13 @@ Wave Wave::slice(int i, int j) const// NOLINT
   return { ys, ts, m_framerate };
 }
 
+void Wave::apodize(float denom, float duration)// NOLINT
+{
+  m_ys = ::asf::apodize(m_ys, m_framerate, denom, duration);
+}
+
+void Wave::normalize(float amp) { m_ys = ::asf::normalize(m_ys, amp); }
+
 float Wave::start() const { return m_ts.front(); }
 
 float Wave::end() const { return m_ts.back(); }
@@ -89,5 +105,39 @@ nc::NdArray<float> Wave::getYs() const { return m_ys; }
 nc::NdArray<float> Wave::getTs() const { return m_ts; }
 
 int Wave::getFramerate() const { return m_framerate; }
+
+nc::NdArray<float> normalize(const nc::NdArray<float> &ys, float amp)
+{
+  const float high = std::abs(*std::ranges::max_element(ys));
+  const float low = std::abs(*std::ranges::min_element(ys));
+  return amp * ys / std::max(high, low);
+}
+
+nc::NdArray<float> apodize(const nc::NdArray<float> &ys, int framerate, float denom, float duration)// NOLINT
+{
+  const long len = ys.size();
+
+  if (len < 2
+              * std::min(
+                static_cast<long>(float(len) / denom), static_cast<long>(std::round(duration * float(framerate))))) {
+    throw std::invalid_argument("Signal is too short to be apodized with the given parameters.");
+  }
+
+  const long frac_seg = len / static_cast<long>(denom);
+  const long time_seg = static_cast<long>(std::round(duration * float(framerate)));
+  const long min_seg = std::min(frac_seg, time_seg);
+
+  if (min_seg == 0) { return ys; }
+
+  const nc::NdArray<float> arr1 = nc::linspace<float>(0.0, 1.0, uint32_t(min_seg));
+  const nc::NdArray<float> arr2 = nc::ones<float>(uint32_t(float(len) - 2.0F * float(min_seg)));// NOLINT
+  const nc::NdArray<float> tmp_arr3 = nc::linspace<float>(0.0, 1.0, uint32_t(min_seg));
+  const nc::NdArray<float> arr3 = nc::flip(tmp_arr3, nc::Axis::ROW);
+
+  const std::vector<nc::NdArray<float>> win_components = { arr1, arr2, arr3 };
+  const nc::NdArray<float> window = nc::concatenate(win_components);
+
+  return ys * window;
+}
 
 }// namespace asf
