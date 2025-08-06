@@ -16,6 +16,8 @@ private:
   int m_framerate;
 
 public:
+  explicit Wave(const nc::NdArray<double> &ys);
+  Wave(const nc::NdArray<double> &ys, int framerate);
   Wave(const nc::NdArray<double> &ys, const nc::NdArray<double> &ts, int framerate);// NOLINT
   Wave(const nc::NdArray<std::complex<double>> &ys, const nc::NdArray<double> &ts, int framerate);// NOLINT
 

@@ -1,6 +1,8 @@
+#include "asfproject/signal.h"
 #include "asfproject/wave_file.h"
 #include <NumCpp/Core/Enums.hpp>
 #include <NumCpp/Functions/abs.hpp>
+#include <NumCpp/Functions/arange.hpp>
 #include <NumCpp/Functions/concatenate.hpp>
 #include <NumCpp/Functions/flip.hpp>
 #include <NumCpp/Functions/linspace.hpp>
@@ -24,6 +26,16 @@
 #include <vector>
 
 namespace asf {
+
+Wave::Wave(const nc::NdArray<double> &ys) : m_ys(ys), m_framerate(DEF_FRAMERATE)
+{
+  m_ts = nc::arange<double>(ys.size()) / double(m_framerate);
+}
+
+Wave::Wave(const nc::NdArray<double> &ys, int framerate) : m_ys(ys), m_framerate(framerate)
+{
+  m_ts = nc::arange<double>(ys.size()) / double(m_framerate);
+}
 
 Wave::Wave(const nc::NdArray<double> &ys, const nc::NdArray<double> &ts, int framerate)// NOLINT
   : m_ys(ys), m_ts(ts), m_framerate(framerate)

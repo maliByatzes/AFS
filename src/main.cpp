@@ -1,6 +1,13 @@
+#include <NumCpp/NdArray/NdArrayCore.hpp>
+#include <asfproject/audio_engine.h>
+#include <asfproject/audio_file.h>
 #include <asfproject/wave.h>
 #include <asfproject/signal.h>
+#include <cstdlib>
+#include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
 
 using namespace asf;
 
@@ -24,9 +31,28 @@ int main()
   wave.normalize();
   // wave.apodize();
   // wave.plot();
+
+  // TODO: Fix `wave.write()` call
+  // const std::string filename("audio/temp.wav");
+  // wave.write(filename);
+
+  const AudioEngine engine;
   
-  const std::string filename("audio/temp.wav");
-  wave.write(filename);
+  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/92002__jcveliz__violin-origional.wav");
+  if (!wave_audio) {
+    std::cerr << "Failed to load WAV file.\n";
+    return EXIT_FAILURE;
+  }
+
+  std::vector<double> pcm_data = wave_audio->getPCMData();
+
+  const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
+  const Wave wave2(ys, wave_audio->getSampleRate());
+
+  double start = 1.2;//NOLINT
+  double duration = 0.6;//NOLINT
+  auto segment2 = wave2.segment(start, duration);
+  segment2.plot();
   
   /*
   const AudioEngine engine;
