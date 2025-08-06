@@ -1,7 +1,6 @@
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/audio_engine.h>
 #include <asfproject/audio_file.h>
-#include <asfproject/wave.h>
 #include <asfproject/signal.h>
 #include <cstdlib>
 #include <iostream>

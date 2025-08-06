@@ -1,12 +1,15 @@
 #ifndef WAVE_H_
 #define WAVE_H_
 
+#include <asfproject/spectrum.h>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>
 #include <map>
 #include <optional>
 
 namespace asf {
+
+class Spectrum;
 
 class Wave
 {
@@ -58,6 +61,7 @@ public:
   [[nodiscard]] double period() const;
   [[nodiscard]] double start() const;
   [[nodiscard]] double end() const;
+  Spectrum makeSpectrum();
 
   [[nodiscard]] nc::NdArray<double> getYs() const;
   [[nodiscard]] nc::NdArray<double> getTs() const;

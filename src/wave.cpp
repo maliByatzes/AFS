@@ -1,3 +1,4 @@
+#include "asfproject/fft.h"
 #include "asfproject/signal.h"
 #include "asfproject/wave_file.h"
 #include <NumCpp/Core/Enums.hpp>
@@ -181,6 +182,17 @@ template<typename dtype> nc::NdArray<dtype> quantize(const nc::NdArray<double> &
   }
 
   return nc::round(ys * bound).astype<dtype>();
+}
+
+Spectrum Wave::makeSpectrum()
+{
+  std::vector<double> ys_vec = m_ys.toStlVector();
+  VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys_vec);
+  nc::NdArray<std::complex<double>> hs = nc::NdArray<std::complex<double>>(1, uint32_t(hs_vec.size()));// NOLINT
+  std::ranges::copy(hs_vec, hs.begin());
+  long n = m_ys.size();// NOLINT
+  nc::NdArray<double> fs = nc::linspace<double>(0.0, static_cast<double>(m_framerate) / 2.0, hs.size());// NOLINT
+  return { hs, fs, m_framerate, size_t(n) };
 }
 
 }// namespace asf

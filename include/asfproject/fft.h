@@ -15,7 +15,7 @@ public:
   FFT() = default;
 
   static VecComplexDoub convertToFrequencyDomain(std::vector<double> &);
-  static std::vector<double> convertToTimeDomain(VecComplexDoub &);
+  static std::vector<double> convertToTimeDomain(VecComplexDoub &, size_t);
 };
 
 }// namespace asf
