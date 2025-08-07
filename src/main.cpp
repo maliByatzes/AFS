@@ -2,9 +2,11 @@
 #include <asfproject/audio_engine.h>
 #include <asfproject/audio_file.h>
 #include <asfproject/signal.h>
+#include <asfproject/spectrum.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -51,7 +53,10 @@ int main()
   double start = 1.2;//NOLINT
   double duration = 0.6;//NOLINT
   auto segment2 = wave2.segment(start, duration);
-  segment2.plot();
+  // segment2.plot();
+  
+  Spectrum spectrum = segment2.makeSpectrum();
+  spectrum.plot(std::nullopt);
   
   return 0;
 }

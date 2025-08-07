@@ -271,7 +271,7 @@ Either<size_t, std::string> WaveFile::getIdxOfChunk(const std::string &ck_id, si
 
     const int32_t ck_size =
       convFourBytesToInt32(std::span(m_file_data.begin() + long(idx), m_file_data.begin() + long(idx) + 4));
-    if (ck_size > static_cast<int32_t>(m_file_data.size() - idx - req_len) || (ck_size < 0)) {
+    if (ck_size > static_cast<int32_t>(m_file_data.size() - idx - req_len) || (ck_size < 0)) {//NOLINT
       const std::string msg{ "The chunk size we got is somehow invalid.\n" };
       return right(msg);
     }

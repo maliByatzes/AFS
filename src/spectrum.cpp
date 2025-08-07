@@ -1,5 +1,3 @@
-#include <asfproject/fft.h>
-#include <asfproject/wave.h>
 #include <NumCpp/Core/Constants.hpp>
 #include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/angle.hpp>
@@ -9,7 +7,9 @@
 #include <NumCpp/Functions/real.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
+#include <asfproject/fft.h>
 #include <asfproject/spectrum.h>
+#include <asfproject/wave.h>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
@@ -43,7 +43,8 @@ SpectrumParent::SpectrumParent(const nc::NdArray<std::complex<double>> &hs,// NO
 
 std::unique_ptr<SpectrumParent> SpectrumParent::clone() const { return std::make_unique<SpectrumParent>(*this); }
 
-double SpectrumParent::maxFreq() const {
+double SpectrumParent::maxFreq() const
+{
   return static_cast<double>(m_framerate) / 2.0;// NOLINT
 }
 
@@ -107,8 +108,8 @@ std::pair<nc::NdArray<double>, nc::NdArray<double>> SpectrumParent::renderFull(s
   nc::NdArray<double> amps = nc::abs(hs);
   nc::NdArray<double> fs = fftShift(m_fs);// NOLINT
 
-  long i = (high < 0) ? 0 : findIndex(-high.value(), fs);// NOLINT
-  long j = (high < 0) ? fs.size() : findIndex(high.value(), fs) + 1;// NOLINT
+  long i = (!high.has_value()) ? 0 : findIndex(-high.value(), fs);// NOLINT
+  long j = (!high.has_value()) ? fs.size() : findIndex(high.value(), fs) + 1;// NOLINT
 
   const nc::NdArray<double> fs_sliced(fs.begin() + i, fs.begin() + j);
   const nc::NdArray<double> amps_sliced(amps.begin() + i, amps.begin() + j);
@@ -124,12 +125,16 @@ void SpectrumParent::plot(std::optional<double> high)
 
     matplot::plot(fs_vec, amps_vec, "--");
   } else {
-    long i = (high < 0) ? -1 : findIndex(high.value(), m_fs);// NOLINT
+    long i = (!high.has_value()) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
-    const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-    const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
+    if (i != -1) {
+      const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
+      const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
 
-    matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector());
+      matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector(), "--");
+    } else {
+      matplot::plot(m_fs.toStlVector(), amps().toStlVector(), "--");
+    }
   }
 
   matplot::show();
@@ -144,20 +149,24 @@ void SpectrumParent::plotPower(std::optional<double> high)
 
     matplot::plot(fs_full.toStlVector(), power_full.toStlVector());
   } else {
-    long i = (high < 0) ? -1 : findIndex(high.value(), m_fs);// NOLINT
+    long i = (!high.has_value()) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
-    const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-    const nc::NdArray<double> power_slice(power().begin(), power().begin() + i);
+    if (i != -1) {
+      const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
+      const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
 
-    matplot::plot(fs_slice.toStlVector(), power_slice.toStlVector(), "--");
+      matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector(), "--");
+    } else {
+      matplot::plot(m_fs.toStlVector(), amps().toStlVector(), "--");
+    }
   }
 
   matplot::show();
 }
 
 // NOLINTBEGIN
-Spectrum::Spectrum(const nc::NdArray<std::complex<double>> &hs,// NOLINT
-  const nc::NdArray<double> &fs,// NOLINT
+Spectrum::Spectrum(const nc::NdArray<std::complex<double>> &hs,
+  const nc::NdArray<double> &fs,
   int framerate,
   size_t orig_n,
   bool full)
