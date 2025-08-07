@@ -1,6 +1,7 @@
-#include "asfproject/fft.h"
-#include "asfproject/signal.h"
-#include "asfproject/wave_file.h"
+#include <asfproject/fft.h>
+#include <asfproject/signal.h>
+#include <asfproject/wave_file.h>
+#include <asfproject/spectrum.h>
 #include <NumCpp/Core/Enums.hpp>
 #include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/arange.hpp>

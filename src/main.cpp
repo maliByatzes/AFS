@@ -53,19 +53,5 @@ int main()
   auto segment2 = wave2.segment(start, duration);
   segment2.plot();
   
-  /*
-  const AudioEngine engine;
-
-  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/4k_hertz_stereo.wav");
-  if (!wave_audio) {
-    std::cerr << "Failed to load WAV file.\n";
-    return EXIT_FAILURE;
-  }
-
-  // Step 1: Change stereo to mono by simple averaging
-  engine.stereoToMono(*wave_audio);
-
-  // Step 2: Apply low pass filter*/
-
   return 0;
 }

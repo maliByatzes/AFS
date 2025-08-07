@@ -1,7 +1,6 @@
 #ifndef WAVE_H_
 #define WAVE_H_
 
-#include <asfproject/spectrum.h>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>
 #include <map>

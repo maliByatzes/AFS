@@ -1,4 +1,5 @@
-#include "asfproject/fft.h"
+#include <asfproject/fft.h>
+#include <asfproject/wave.h>
 #include <NumCpp/Core/Constants.hpp>
 #include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/angle.hpp>
@@ -16,7 +17,9 @@
 #include <limits>
 #include <matplot/freestanding/plot.h>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace asf {
@@ -65,7 +68,7 @@ SpectrumParent SpectrumParent::ratio(const SpectrumParent &denom, double thresh,
   SpectrumParent new_spec = *this;
   new_spec.m_hs /= denom.m_hs;
 
-  nc::NdArray<bool> mask = denom.amps() < thresh;
+  const nc::NdArray<bool> mask = denom.amps() < thresh;
   new_spec.m_hs[mask].fill(static_cast<std::complex<double>>(val));
 
   return new_spec;
@@ -107,8 +110,8 @@ std::pair<nc::NdArray<double>, nc::NdArray<double>> SpectrumParent::renderFull(s
   long i = (high < 0) ? 0 : findIndex(-high.value(), fs);// NOLINT
   long j = (high < 0) ? fs.size() : findIndex(high.value(), fs) + 1;// NOLINT
 
-  nc::NdArray<double> fs_sliced(fs.begin() + i, fs.begin() + j);
-  nc::NdArray<double> amps_sliced(amps.begin() + i, amps.begin() + j);
+  const nc::NdArray<double> fs_sliced(fs.begin() + i, fs.begin() + j);
+  const nc::NdArray<double> amps_sliced(amps.begin() + i, amps.begin() + j);
   return { fs_sliced, amps_sliced };
 }
 
@@ -116,15 +119,15 @@ void SpectrumParent::plot(std::optional<double> high)
 {
   if (m_full) {
     auto [fs_full, amps_full] = renderFull(high);
-    std::vector<double> fs_vec = fs_full.toStlVector();
-    std::vector<double> amps_vec = amps_full.toStlVector();
+    const std::vector<double> fs_vec = fs_full.toStlVector();
+    const std::vector<double> amps_vec = amps_full.toStlVector();
 
     matplot::plot(fs_vec, amps_vec, "--");
   } else {
     long i = (high < 0) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
-    nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-    nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
+    const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
+    const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
 
     matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector());
   }
@@ -137,14 +140,14 @@ void SpectrumParent::plotPower(std::optional<double> high)
   if (m_full) {
     auto [fs_full, amps_full] = renderFull(high);
 
-    nc::NdArray<double> power_full = amps_full * amps_full;
+    const nc::NdArray<double> power_full = amps_full * amps_full;
 
     matplot::plot(fs_full.toStlVector(), power_full.toStlVector());
   } else {
     long i = (high < 0) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
-    nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-    nc::NdArray<double> power_slice(power().begin(), power().begin() + i);
+    const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
+    const nc::NdArray<double> power_slice(power().begin(), power().begin() + i);
 
     matplot::plot(fs_slice.toStlVector(), power_slice.toStlVector(), "--");
   }
@@ -203,21 +206,21 @@ void Spectrum::scale(const std::complex<double> &factor) { m_hs *= factor; }
 
 void Spectrum::lowPass(double cutoff, double factor)// NOLINT
 {
-  nc::NdArray<bool> mask = nc::abs(m_fs) > cutoff;
-  m_hs[mask] *= static_cast<std::complex<double>>(factor);
+  const nc::NdArray<bool> mask = nc::abs(m_fs) > cutoff;
+  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
 }
 
 void Spectrum::highPass(double cutoff, double factor)// NOLINT
 {
-  nc::NdArray<bool> mask = nc::abs(m_fs) < cutoff;
-  m_hs[mask] *= static_cast<std::complex<double>>(factor);
+  const nc::NdArray<bool> mask = nc::abs(m_fs) < cutoff;
+  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
 }
 
 void Spectrum::bandStop(double low_cutoff, double high_cutoff, double factor)// NOLINT
 {
-  nc::NdArray<double> fs_abs = nc::abs(m_fs);
-  nc::NdArray<bool> mask = (fs_abs > low_cutoff) & (fs_abs < high_cutoff);
-  m_hs[mask] *= static_cast<std::complex<double>>(factor);
+  const nc::NdArray<double> fs_abs = nc::abs(m_fs);
+  const nc::NdArray<bool> mask = (fs_abs > low_cutoff) & (fs_abs < high_cutoff);
+  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
 }
 
 void Spectrum::pinkFilter(double beta)
@@ -237,13 +240,13 @@ Spectrum Spectrum::differentiate() const
 
 Spectrum Spectrum::integrate() const
 {
-  Spectrum new_spec = *this;
+  const Spectrum new_spec = *this;
   const std::complex<double> imag_unit(0.0, 1.0);
 
-  nc::NdArray<bool> zero_mask = new_spec.m_fs == 0.0;
+  const nc::NdArray<bool> zero_mask = new_spec.m_fs == 0.0;
 
   nc::NdArray<std::complex<double>> non_zero_hs = new_spec.m_hs[~zero_mask];
-  nc::NdArray<double> non_zero_fs = new_spec.m_fs[~zero_mask];
+  const nc::NdArray<double> non_zero_fs = new_spec.m_fs[~zero_mask];
   non_zero_hs /= (2.0 * nc::constants::pi * imag_unit * non_zero_fs);// NOLINT
 
   new_spec.m_hs[~zero_mask] = non_zero_hs;
