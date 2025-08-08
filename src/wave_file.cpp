@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -219,6 +220,9 @@ bool WaveFile::decodeSamples(const WaveFmtChunk &fmt_chunk, WaveDataChunk &data_
     assert(true && "Not implemented!");
   }
 
+  // Scale down samples to [-1,1]
+  m_pcm_data = scaleDownSamples(m_pcm_data);
+
   return true;
 }
 
@@ -271,7 +275,7 @@ Either<size_t, std::string> WaveFile::getIdxOfChunk(const std::string &ck_id, si
 
     const int32_t ck_size =
       convFourBytesToInt32(std::span(m_file_data.begin() + long(idx), m_file_data.begin() + long(idx) + 4));
-    if (ck_size > static_cast<int32_t>(m_file_data.size() - idx - req_len) || (ck_size < 0)) {//NOLINT
+    if (ck_size > static_cast<int32_t>(m_file_data.size() - idx - req_len) || (ck_size < 0)) {// NOLINT
       const std::string msg{ "The chunk size we got is somehow invalid.\n" };
       return right(msg);
     }
@@ -289,7 +293,7 @@ bool WaveFile::writeDataToFile(std::vector<uint8_t> &data, const std::string &fi
   std::ofstream out_file(file_path, std::ios::binary);
   if (!out_file.is_open()) { return false; }
 
-  out_file.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));//NOLINT
+  out_file.write(reinterpret_cast<const char *>(data.data()), std::streamsize(data.size()));// NOLINT
   out_file.close();
   return true;
 }
@@ -485,4 +489,27 @@ std::array<uint8_t, 2> convInt16ToTwoBytes(int16_t value, std::endian endianness
 
   return bytes;
 }
+
+std::vector<double> scaleDownSamples(const std::vector<double> &samples)
+{
+  if (samples.empty()) { return {}; }
+
+  double max_sample = 0.0;
+
+  std::ranges::for_each(samples, [&max_sample](double sample) {
+    auto abs_sample = std::abs(sample);
+    max_sample = std::fmax(max_sample, abs_sample);
+  });
+
+  std::vector<double> scaled_samples(samples.size());
+
+  if (max_sample == 0.0) {
+    return samples;
+  } else {
+    for (size_t i = 0; i < samples.size(); ++i) { scaled_samples[i] = samples[i] / max_sample; }
+  }
+
+  return scaled_samples;
+}
+
 }// namespace asf

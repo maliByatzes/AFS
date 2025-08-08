@@ -38,7 +38,7 @@ int main()
   // wave.write(filename);
 
   const AudioEngine engine;
-  
+
   std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/92002__jcveliz__violin-origional.wav");
   if (!wave_audio) {
     std::cerr << "Failed to load WAV file.\n";
@@ -50,13 +50,13 @@ int main()
   const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
   const Wave wave2(ys, wave_audio->getSampleRate());
 
-  double start = 1.2;//NOLINT
-  double duration = 0.6;//NOLINT
+  double start = 1.2;// NOLINT
+  double duration = 0.6;// NOLINT
   auto segment2 = wave2.segment(start, duration);
   // segment2.plot();
-  
+
   Spectrum spectrum = segment2.makeSpectrum();
   spectrum.plot(std::nullopt);
-  
+
   return 0;
 }

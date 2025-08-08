@@ -95,6 +95,7 @@ void addInt32ToData(std::vector<uint8_t> &, int32_t);
 void addInt16ToData(std::vector<uint8_t> &, int16_t);
 std::array<uint8_t, 4> convInt32ToFourBytes(int32_t, std::endian = std::endian::little);
 std::array<uint8_t, 2> convInt16ToTwoBytes(int16_t, std::endian = std::endian::little);
+std::vector<double> scaleDownSamples(const std::vector<double> &);
 
 }// namespace asf
 
