@@ -66,7 +66,8 @@ void Wave::plot(std::map<std::string, double> options) const
   const std::vector<double> ts_vec(ts_scaled.begin(), ts_scaled.end());
   const std::vector<double> ys_vec(m_ys.begin(), m_ys.end());
 
-  matplot::plot(ts_vec, ys_vec, "--");
+  matplot::plot(ts_vec, ys_vec);
+  matplot::xlabel("Time (s)");
   matplot::show();
   // NOTE: Ignore the options for now...
 }

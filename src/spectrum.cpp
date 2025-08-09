@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <matplot/freestanding/axes_functions.h>
 #include <matplot/freestanding/plot.h>
 #include <memory>
 #include <optional>
@@ -123,17 +124,26 @@ void SpectrumParent::plot(std::optional<double> high)
     const std::vector<double> fs_vec = fs_full.toStlVector();
     const std::vector<double> amps_vec = amps_full.toStlVector();
 
-    matplot::plot(fs_vec, amps_vec, "--");
+    matplot::plot(fs_vec, amps_vec);
+    matplot::xlabel("Frequency (Hz)");
+    matplot::ylabel("Amplitude");
   } else {
     long i = (!high.has_value()) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
     if (i != -1) {
-      const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-      const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
-
-      matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector(), "--");
+      const std::vector<double> fs_full_vec = m_fs.toStlVector();
+      const std::vector<double> amps_full_vec = amps().toStlVector();
+      
+      const std::vector<double> fs_slice(fs_full_vec.begin(), fs_full_vec.begin() + i);
+      const std::vector<double> amps_slice(amps_full_vec.begin(), amps_full_vec.begin() + i);
+    
+      matplot::plot(fs_slice, amps_slice);
+      matplot::xlabel("Frequency (Hz)");
+      matplot::ylabel("Amplitude");
     } else {
-      matplot::plot(m_fs.toStlVector(), amps().toStlVector(), "--");
+      matplot::plot(m_fs.toStlVector(), amps().toStlVector());
+      matplot::xlabel("Frequency (Hz)");
+      matplot::ylabel("Amplitude");
     }
   }
 
@@ -148,16 +158,25 @@ void SpectrumParent::plotPower(std::optional<double> high)
     const nc::NdArray<double> power_full = amps_full * amps_full;
 
     matplot::plot(fs_full.toStlVector(), power_full.toStlVector());
+    matplot::xlabel("Frequency (Hz)");
+    matplot::ylabel("Amplitude");
   } else {
     long i = (!high.has_value()) ? -1 : findIndex(high.value(), m_fs);// NOLINT
 
     if (i != -1) {
-      const nc::NdArray<double> fs_slice(m_fs.begin(), m_fs.begin() + i);
-      const nc::NdArray<double> amps_slice(amps().begin(), amps().begin() + i);
-
-      matplot::plot(fs_slice.toStlVector(), amps_slice.toStlVector(), "--");
+      const std::vector<double> fs_full_vec = m_fs.toStlVector();
+      const std::vector<double> amps_full_vec = amps().toStlVector();
+      
+      const std::vector<double> fs_slice(fs_full_vec.begin(), fs_full_vec.begin() + i);
+      const std::vector<double> amps_slice(amps_full_vec.begin(), amps_full_vec.begin() + i);
+    
+      matplot::plot(fs_slice, amps_slice);
+      matplot::xlabel("Frequency (Hz)");
+      matplot::ylabel("Amplitude");
     } else {
       matplot::plot(m_fs.toStlVector(), amps().toStlVector(), "--");
+      matplot::xlabel("Frequency (Hz)");
+      matplot::ylabel("Amplitude");
     }
   }
 

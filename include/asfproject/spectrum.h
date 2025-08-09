@@ -12,9 +12,9 @@
 namespace asf {
 
 class Wave;
-  
+
 long findIndex(double value, const nc::NdArray<double> &arr);
-  
+
 class SpectrumParent// NOLINT
 {
 protected:

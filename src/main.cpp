@@ -56,7 +56,9 @@ int main()
   // segment2.plot();
 
   Spectrum spectrum = segment2.makeSpectrum();
-  spectrum.plot(std::nullopt);
+  // spectrum.plot(std::nullopt);
+
+  spectrum.plot(10000.0);//NOLINT
 
   return 0;
 }
