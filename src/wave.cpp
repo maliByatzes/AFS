@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <matplot/freestanding/axes_functions.h>
 #include <matplot/freestanding/plot.h>
 #include <optional>
 #include <stdexcept>

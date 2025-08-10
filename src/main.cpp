@@ -58,7 +58,19 @@ int main()
   Spectrum spectrum = segment2.makeSpectrum();
   // spectrum.plot(std::nullopt);
 
-  spectrum.plot(10000.0);//NOLINT
+  // spectrum.plot(10000.0);//NOLINT
+
+  spectrum.lowPass(3000);// NOLINT
+  // spectrum.plot(10000);//NOLINT
+
+  auto filtered = spectrum.makeWave();
+  filtered.normalize();
+  // filtered.apodize();
+  filtered.plot();
+
+  segment2.normalize();
+  // segment2.apodize();
+  segment2.plot();
 
   return 0;
 }

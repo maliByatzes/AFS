@@ -133,10 +133,10 @@ void SpectrumParent::plot(std::optional<double> high)
     if (i != -1) {
       const std::vector<double> fs_full_vec = m_fs.toStlVector();
       const std::vector<double> amps_full_vec = amps().toStlVector();
-      
+
       const std::vector<double> fs_slice(fs_full_vec.begin(), fs_full_vec.begin() + i);
       const std::vector<double> amps_slice(amps_full_vec.begin(), amps_full_vec.begin() + i);
-    
+
       matplot::plot(fs_slice, amps_slice);
       matplot::xlabel("Frequency (Hz)");
       matplot::ylabel("Amplitude");
@@ -166,10 +166,10 @@ void SpectrumParent::plotPower(std::optional<double> high)
     if (i != -1) {
       const std::vector<double> fs_full_vec = m_fs.toStlVector();
       const std::vector<double> amps_full_vec = amps().toStlVector();
-      
+
       const std::vector<double> fs_slice(fs_full_vec.begin(), fs_full_vec.begin() + i);
       const std::vector<double> amps_slice(amps_full_vec.begin(), amps_full_vec.begin() + i);
-    
+
       matplot::plot(fs_slice, amps_slice);
       matplot::xlabel("Frequency (Hz)");
       matplot::ylabel("Amplitude");
@@ -234,21 +234,29 @@ void Spectrum::scale(const std::complex<double> &factor) { m_hs *= factor; }
 
 void Spectrum::lowPass(double cutoff, double factor)// NOLINT
 {
-  const nc::NdArray<bool> mask = nc::abs(m_fs) > cutoff;
-  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
+  for (int i = 0; i < int(m_fs.size()); ++i) {// NOLINT
+    if (nc::abs(m_fs[i]) > cutoff) { m_hs[i] = m_hs[i] * static_cast<std::complex<double>>(factor); }
+  }
 }
 
 void Spectrum::highPass(double cutoff, double factor)// NOLINT
 {
-  const nc::NdArray<bool> mask = nc::abs(m_fs) < cutoff;
-  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
+  for (int i = 0; i < int(m_fs.size()); ++i) {// NOLINT
+    if (nc::abs(m_fs[i]) < cutoff) { m_hs[i] = m_hs[i] * static_cast<std::complex<double>>(factor); }
+  }
 }
 
 void Spectrum::bandStop(double low_cutoff, double high_cutoff, double factor)// NOLINT
 {
-  const nc::NdArray<double> fs_abs = nc::abs(m_fs);
-  const nc::NdArray<bool> mask = (fs_abs > low_cutoff) & (fs_abs < high_cutoff);
-  m_hs[mask] = m_hs[mask] * static_cast<std::complex<double>>(factor);
+  if (low_cutoff > high_cutoff) { std::swap(low_cutoff, high_cutoff); }
+
+  for (int i = 0; i < int(m_fs.size()); ++i) {// NOLINT
+    const double abs_freq = nc::abs(m_fs[i]);
+
+    if (abs_freq < low_cutoff || abs_freq > high_cutoff) {
+      m_hs[i] = m_hs[i] * static_cast<std::complex<double>>(factor);
+    }
+  }
 }
 
 void Spectrum::pinkFilter(double beta)
