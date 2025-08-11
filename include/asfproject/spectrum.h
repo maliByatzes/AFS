@@ -1,5 +1,5 @@
-#ifndef SPECTRUM_H_
-#define SPECTRUM_H_
+#ifndef spectrum_h_
+#define spectrum_h_
 
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>

@@ -1,3 +1,4 @@
+#include <NumCpp/Functions/hamming.hpp>
 #include <asfproject/fft.h>
 #include <asfproject/signal.h>
 #include <asfproject/wave_file.h>
@@ -57,6 +58,11 @@ double Wave::getXFactor(std::map<std::string, double> &options)
     options.erase(it);
   }
   return xfactor;
+}
+
+void Wave::hamming()
+{
+  m_ys *= nc::hamming(m_ys.size());
 }
 
 void Wave::plot(std::map<std::string, double> options) const

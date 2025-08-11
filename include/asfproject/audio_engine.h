@@ -27,6 +27,9 @@ public:
   static void normalizePCMData(IAudioFile &);
   static void stereoToMono(IAudioFile &);
   static void applyLowPassFilter(IAudioFile &);
+  static void downSampling(IAudioFile &);
+  // NOTE: This may be temporary
+  static void processServerSide(IAudioFile &);
 };
 
 }// namespace asf

@@ -66,11 +66,11 @@ int main()
   auto filtered = spectrum.makeWave();
   filtered.normalize();
   // filtered.apodize();
-  filtered.plot();
+  // filtered.plot();
 
   segment2.normalize();
   // segment2.apodize();
-  segment2.plot();
+  // segment2.plot();
 
   return 0;
 }

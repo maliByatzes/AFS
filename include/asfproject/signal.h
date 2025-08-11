@@ -1,5 +1,5 @@
-#ifndef SIGNAL_H_
-#define SIGNAL_H_
+#ifndef signal_h_
+#define signal_h_
 
 #include <asfproject/wave.h>
 #include <cmath>

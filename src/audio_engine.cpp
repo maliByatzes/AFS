@@ -1,3 +1,6 @@
+#include "asfproject/spectrum.h"
+#include "asfproject/wave.h"
+#include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
 #include <asfproject/audio_engine.h>
 #include <asfproject/audio_file.h>
@@ -57,7 +60,7 @@ void AudioEngine::normalizePCMData(IAudioFile &audio_file)
   double max_sample = 0.0;
   std::ranges::for_each(pcm_data, [&max_sample](double sample) {
     auto abs_sample = std::abs(sample);
-    max_sample = std::fmax(max_sample, abs_sample);                    
+    max_sample = std::fmax(max_sample, abs_sample);
   });
 
   std::vector<double> normalized_pcm_data(pcm_data.size());
@@ -70,10 +73,55 @@ void AudioEngine::normalizePCMData(IAudioFile &audio_file)
 
   audio_file.setPCMData(normalized_pcm_data, audio_file.getSampleRate(), audio_file.getNumChannels());
 }
-/*
+
 void AudioEngine::applyLowPassFilter(IAudioFile &audio_file)
 {
+  std::vector<double> pcm_data = audio_file.getPCMData();
+
+  const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
+  Wave wave(ys, audio_file.getSampleRate());
+
+  Spectrum spectrum = wave.makeSpectrum();
+  spectrum.lowPass(5000);// NOLINT
+
+  Wave filtered = spectrum.makeWave();
+  std::vector<double> pcm_data2 = filtered.getYs().toStlVector();
+
+  audio_file.setPCMData(pcm_data2, audio_file.getSampleRate(), audio_file.getNumChannels());
+}
+
+void AudioEngine::downSampling(IAudioFile &audio_file)
+{
+  // Downsample for sample rate @ 44100 Hz
+
+  if (audio_file.getSampleRate() == 44100) {// NOLINT
+    std::vector<double> pcm_data = audio_file.getPCMData();
+    std::vector<double> new_pcm_data(pcm_data.size() / 4);
+
+    for (size_t i = 0; i < pcm_data.max_size(); i += 4) {
+      double sum = pcm_data[i] + pcm_data[i + 1] + pcm_data[i + 2] + pcm_data[i + 3];
+      double avg = sum / 4;
+
+      new_pcm_data.push_back(avg);
+    }
+
+    audio_file.setPCMData(new_pcm_data, audio_file.getSampleRate() / 4, audio_file.getNumChannels());
+  }
+}
+
+void AudioEngine::processServerSide(IAudioFile &audio_file)
+{
+  // 1. Stereo to Mono
+  stereoToMono(audio_file);
+
+  // 2. Low pass filter
+  applyLowPassFilter(audio_file);
+
+  // 3. Downsampling
+  downSampling(audio_file);
   
-}*/
+  // 4. Hamming window
+  // 5. FFT
+}
 
 }// namespace asf

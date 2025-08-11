@@ -1,5 +1,5 @@
-#ifndef WAVE_H_
-#define WAVE_H_
+#ifndef wave_h_
+#define wave_h_
 
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <complex>
@@ -39,7 +39,7 @@ public:
   [[nodiscard]] Wave diff() const;
   [[nodiscard]] int findIndex(double time) const;
   static double getXFactor(std::map<std::string, double> &options);
-  void hamming() const;
+  void hamming();
   void makeAudio() const;
   void makeDCT() const;
   void normalize(double amp = 1.0);
