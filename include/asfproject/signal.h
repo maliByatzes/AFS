@@ -74,6 +74,7 @@ private:
 public:
   Chirp(double start = 440.0, double end = 880.0, double amp = 1.0);// NOLINT
 
+  [[nodiscard]] std::unique_ptr<Signal> clone() const override;
   nc::NdArray<double> evaluate(const nc::NdArray<double> &ts) const override;//NOLINT 
   [[nodiscard]] double period() const override;
 };

@@ -109,24 +109,24 @@ Chirp::Chirp(double start, double end, double amp) : m_start(start), m_end(end),
 
 nc::NdArray<double> Chirp::evaluate(const nc::NdArray<double> &ts) const// NOLINT
 {
-  auto interpolate = [](const nc::NdArray<double> &ts, double f0, double f1) {// NOLINT
-    double t0 = ts.front();// NOLINT
-    double t1 = ts.back();// NOLINT
-    return (f0 + (f1 - f0)) * (ts - t0) / (t1 - t0);
+  auto interpolate = [](const nc::NdArray<double> &tss, double f0, double f1) {// NOLINT
+    double t0 = tss.front();// NOLINT
+    double t1 = tss.back();// NOLINT
+    return (f0 + (f1 - f0)) * (tss - t0) / (t1 - t0);
   };
 
   // compute the frequencies
-  nc::NdArray<double> freqs = interpolate(ts, m_start, m_end);
+  const nc::NdArray<double> freqs = interpolate(ts, m_start, m_end);
 
   // compute the time intervals
-  nc::NdArray<double> dts = nc::diff(ts);// append ts.back()
+  const nc::NdArray<double> dts = nc::diff(ts);// append ts.back()
 
   // compute the changes in phase
-  nc::NdArray<double> dphis1 = nc::constants::twoPi * freqs * dts; 
-  nc::NdArray<double> dphis2 = nc::roll(dphis1, 1);
+  const nc::NdArray<double> dphis1 = nc::constants::twoPi * freqs * dts; 
+  const nc::NdArray<double> dphis2 = nc::roll(dphis1, 1);
 
   // compute phase
-  nc::NdArray<double> phases = nc::cumsum(dphis2);
+  const nc::NdArray<double> phases = nc::cumsum(dphis2);
 
   // compute the amplitudes
   nc::NdArray<double> ys = m_amp * nc::cos(phases);
@@ -134,6 +134,8 @@ nc::NdArray<double> Chirp::evaluate(const nc::NdArray<double> &ts) const// NOLIN
 }
 
 double Chirp::period() const { throw std::runtime_error("Non-periodic signal."); }
+
+std::unique_ptr<Signal> Chirp::clone() const { return std::make_unique<Chirp>(*this); }
 
 std::unique_ptr<Sinusoid> cosSignal(double freq, double amp, double offset)
 {
