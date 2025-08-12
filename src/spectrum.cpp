@@ -183,6 +183,12 @@ void SpectrumParent::plotPower(std::optional<double> high)
   matplot::show();
 }
 
+nc::NdArray<std::complex<double>> SpectrumParent::getMhs() const { return m_hs; }
+
+nc::NdArray<double> SpectrumParent::getMfs() const { return m_fs; }
+
+int SpectrumParent::getFramerate() const { return m_framerate; }
+
 // NOLINTBEGIN
 Spectrum::Spectrum(const nc::NdArray<std::complex<double>> &hs,
   const nc::NdArray<double> &fs,

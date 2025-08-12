@@ -1,4 +1,4 @@
-add_executable(ASF main.cpp fft.cpp audio_engine.cpp wave_file.cpp signal.cpp wave.cpp spectrum.cpp)
+add_executable(ASF main.cpp fft.cpp audio_engine.cpp wave_file.cpp signal.cpp wave.cpp spectrum.cpp spectrogram.cpp)
 
 target_link_libraries(
   ASF

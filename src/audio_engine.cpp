@@ -84,8 +84,8 @@ void AudioEngine::applyLowPassFilter(IAudioFile &audio_file)
   Spectrum spectrum = wave.makeSpectrum();
   spectrum.lowPass(5000);// NOLINT
 
-  Wave filtered = spectrum.makeWave();
-  std::vector<double> pcm_data2 = filtered.getYs().toStlVector();
+  const Wave filtered = spectrum.makeWave();
+  const std::vector<double> pcm_data2 = filtered.getYs().toStlVector();
 
   audio_file.setPCMData(pcm_data2, audio_file.getSampleRate(), audio_file.getNumChannels());
 }
@@ -99,8 +99,8 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
     std::vector<double> new_pcm_data(pcm_data.size() / 4);
 
     for (size_t i = 0; i < pcm_data.max_size(); i += 4) {
-      double sum = pcm_data[i] + pcm_data[i + 1] + pcm_data[i + 2] + pcm_data[i + 3];
-      double avg = sum / 4;
+      const double sum = pcm_data[i] + pcm_data[i + 1] + pcm_data[i + 2] + pcm_data[i + 3];
+      const double avg = sum / 4;
 
       new_pcm_data.push_back(avg);
     }

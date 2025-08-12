@@ -3,6 +3,7 @@
 #include <asfproject/signal.h>
 #include <asfproject/wave_file.h>
 #include <asfproject/spectrum.h>
+#include <asfproject/spectrogram.h>
 #include <NumCpp/Core/Enums.hpp>
 #include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/arange.hpp>
@@ -62,7 +63,44 @@ double Wave::getXFactor(std::map<std::string, double> &options)
 
 void Wave::hamming()
 {
-  m_ys *= nc::hamming(m_ys.size());
+  m_ys *= nc::hamming(int32_t(m_ys.size()));
+}
+
+void Wave::window(nc::NdArray<double> &window)
+{
+  m_ys *= window;  
+}
+
+Spectrogram Wave::makeSpectrogram(int seg_length, bool win_flag)
+{
+  nc::NdArray<double> window;
+  
+  if (win_flag) {
+   window = nc::hamming(seg_length);
+  }
+
+  int i = 0;// NOLINT
+  int j = seg_length;// NOLINT
+  const int step = seg_length / 2;
+
+  // map time from Spectrum
+  std::map<double, Spectrum> spec_map = {};
+
+  while (j < int(m_ys.size())) {// NOLINT
+    Wave segment = this->slice(i, j);
+    if (win_flag) {
+      segment.window(window);
+    }
+
+    // the nominal time for this segment is the midpoint
+    const double midpoint = (segment.start() + segment.end()) / 2;
+    spec_map.at(midpoint) = segment.makeSpectrum();
+
+    i += step;
+    j += step;
+  }
+
+  return { spec_map, seg_length };
 }
 
 void Wave::plot(std::map<std::string, double> options) const

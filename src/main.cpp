@@ -71,6 +71,6 @@ int main()
   segment2.normalize();
   // segment2.apodize();
   // segment2.plot();
-
+  
   return 0;
 }

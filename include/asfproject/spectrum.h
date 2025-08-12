@@ -50,6 +50,11 @@ public:
   void plotPower(std::optional<double> high);
 
   [[nodiscard]] std::vector<std::pair<double, double>> peaks() const;
+
+  [[nodiscard]] nc::NdArray<std::complex<double>> getMhs() const;
+  [[nodiscard]] nc::NdArray<double> getMfs() const;
+  [[nodiscard]] int getFramerate() const;
+
 };
 
 class Spectrum : public SpectrumParent// NOLINT
@@ -62,6 +67,7 @@ public:
     bool full = false);
 
   Spectrum(const Spectrum &other) = default;
+  Spectrum &operator=(const Spectrum &other) = default;
 
   [[nodiscard]] size_t size() const;
 

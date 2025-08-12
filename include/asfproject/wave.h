@@ -9,6 +9,7 @@
 namespace asf {
 
 class Spectrum;
+class Spectrogram;
 
 class Wave
 {
@@ -40,8 +41,10 @@ public:
   [[nodiscard]] int findIndex(double time) const;
   static double getXFactor(std::map<std::string, double> &options);
   void hamming();
+  void window(nc::NdArray<double> &window);
   void makeAudio() const;
   void makeDCT() const;
+  Spectrogram makeSpectrogram(int seg_length, bool win_flag = true);
   void normalize(double amp = 1.0);
   void play(std::string &filename) const;
   void plot(std::map<std::string, double> options = {}) const;
@@ -54,7 +57,6 @@ public:
   [[nodiscard]] Wave slice(int i, int j) const;// NOLINT
   void truncate(int index) const;
   void unbias() const;
-  void window(int window) const;
   void write(const std::string &filename) const;
   void zeroPad(int n) const;// NOLINT
   [[nodiscard]] double period() const;
