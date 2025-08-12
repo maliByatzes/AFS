@@ -1,6 +1,9 @@
 #include <NumCpp/Core/Constants.hpp>
 #include <NumCpp/Functions/arange.hpp>
 #include <NumCpp/Functions/cos.hpp>
+#include <NumCpp/Functions/cumsum.hpp>
+#include <NumCpp/Functions/diff.hpp>
+#include <NumCpp/Functions/roll.hpp>
 #include <NumCpp/Functions/sin.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
@@ -9,6 +12,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -99,6 +103,37 @@ double SumSignal::period() const
 
   return maxp > 0 ? maxp : DEF_PERIOD;// NOLINT
 }
+
+Chirp::Chirp(double start, double end, double amp) : m_start(start), m_end(end), m_amp(amp)// NOLINT
+{}
+
+nc::NdArray<double> Chirp::evaluate(const nc::NdArray<double> &ts) const// NOLINT
+{
+  auto interpolate = [](const nc::NdArray<double> &ts, double f0, double f1) {// NOLINT
+    double t0 = ts.front();// NOLINT
+    double t1 = ts.back();// NOLINT
+    return (f0 + (f1 - f0)) * (ts - t0) / (t1 - t0);
+  };
+
+  // compute the frequencies
+  nc::NdArray<double> freqs = interpolate(ts, m_start, m_end);
+
+  // compute the time intervals
+  nc::NdArray<double> dts = nc::diff(ts);// append ts.back()
+
+  // compute the changes in phase
+  nc::NdArray<double> dphis1 = nc::constants::twoPi * freqs * dts; 
+  nc::NdArray<double> dphis2 = nc::roll(dphis1, 1);
+
+  // compute phase
+  nc::NdArray<double> phases = nc::cumsum(dphis2);
+
+  // compute the amplitudes
+  nc::NdArray<double> ys = m_amp * nc::cos(phases);
+  return ys;
+}
+
+double Chirp::period() const { throw std::runtime_error("Non-periodic signal."); }
 
 std::unique_ptr<Sinusoid> cosSignal(double freq, double amp, double offset)
 {

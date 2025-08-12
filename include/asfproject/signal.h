@@ -64,6 +64,20 @@ public:
   [[nodiscard]] double period() const override;
 };
 
+class Chirp : public Signal
+{
+private:
+  double m_start;
+  double m_end;
+  double m_amp;
+  
+public:
+  Chirp(double start = 440.0, double end = 880.0, double amp = 1.0);// NOLINT
+
+  nc::NdArray<double> evaluate(const nc::NdArray<double> &ts) const override;//NOLINT 
+  [[nodiscard]] double period() const override;
+};
+
 // Standalone functions
 
 std::unique_ptr<Sinusoid> cosSignal(double freq = DEF_FREQ, double amp = DEF_AMP, double offset = 0);
