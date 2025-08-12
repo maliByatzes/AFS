@@ -1,3 +1,4 @@
+#include "asfproject/spectrogram.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/audio_engine.h>
 #include <asfproject/audio_file.h>
@@ -71,6 +72,12 @@ int main()
   segment2.normalize();
   // segment2.apodize();
   // segment2.plot();
+
+  int seg_length = 512;// NOLINT
+  const Spectrogram spectrogram = segment2.makeSpectrogram(seg_length);
+  std::cout << "Time resolution (s): " << spectrogram.timeRes() << "\n";
+  std::cout << "Frequency resolution (Hz): " << spectrogram.freqRes() << "\n";
+  spectrogram.plot(700);// NOLINT
   
   return 0;
 }

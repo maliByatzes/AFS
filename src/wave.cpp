@@ -94,7 +94,8 @@ Spectrogram Wave::makeSpectrogram(int seg_length, bool win_flag)
 
     // the nominal time for this segment is the midpoint
     const double midpoint = (segment.start() + segment.end()) / 2;
-    spec_map.at(midpoint) = segment.makeSpectrum();
+    // spec_map[midpoint] = segment.makeSpectrum();
+    spec_map.insert({ midpoint, segment.makeSpectrum() });
 
     i += step;
     j += step;

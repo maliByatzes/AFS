@@ -37,33 +37,32 @@ nc::NdArray<double> Spectrogram::frequencies() const { return anySpectrum().getM
 
 void Spectrogram::plot(std::optional<double> high) const
 {
-  const nc::NdArray<double> &fs_full = frequencies();
-  long i = high.has_value() ? findIndex(high.value(), fs_full) : fs_full.size();// NOLINT
+  const nc::NdArray<double> fs_full = frequencies();// NOLINT
+  long i = high.has_value() ? findIndex(high.value(), fs_full) : -1;// NOLINT
 
-  const nc::NdArray<double> fs_slice(fs_full.begin(), fs_full.begin() + i);
-  const std::vector<double> fs_vec = fs_slice.toStlVector();
-  const std::vector<double> ts_vec = times();
+  const std::vector<double> fs(fs_full.begin(), fs_full.begin() + i);// NOLINT
+  const std::vector<double> ts = times(); // NOLINT
 
-  std::vector<std::vector<double>> arr(fs_vec.size(), std::vector<double>(ts_vec.size()));
+  // make the array
+  std::vector<std::vector<double>> arr(fs.size(), std::vector<double>(ts.size()));
 
   size_t j = 0;// NOLINT
   for (const auto &pair : m_spec_map) {
     const Spectrum &spectrum = pair.second;
-    const nc::NdArray<double> &amps = spectrum.amps();
+    const nc::NdArray<double> amps = spectrum.amps();
     const nc::NdArray<double> amps_slice(amps.begin(), amps.begin() + i);
 
     for (size_t k = 0; k < amps_slice.size(); ++k) { arr[k][j] = amps_slice[int(k)]; }
     j++;
-
-    // matplot::plot(ts_vec, fs_vec, arr);
-    matplot::pcolor(arr);
-
-    matplot::xlabel("Time (s)");
-    matplot::ylabel("Frequency (Hz)");
-    matplot::title("Spectrogram");
-    matplot::colorbar();
-    matplot::show();
   }
+
+  // matplot::plot(ts_vec, fs_vec, arr);
+  matplot::pcolor(arr);
+  matplot::xlabel("Time (s)");
+  matplot::ylabel("Frequency (Hz)");
+  matplot::title("Spectrogram");
+  matplot::colorbar();
+  matplot::show();
 }
 
 }// namespace asf
