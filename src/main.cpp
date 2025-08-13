@@ -1,22 +1,13 @@
-#include "asfproject/spectrogram.h"
-#include <NumCpp/NdArray/NdArrayCore.hpp>
-#include <asfproject/audio_engine.h>
-#include <asfproject/audio_file.h>
+#include "asfproject/spectrum.h"
 #include <asfproject/signal.h>
-#include <asfproject/spectrum.h>
-#include <cstdlib>
-#include <iostream>
+#include <asfproject/wave.h>
 #include <memory>
-#include <optional>
-#include <string>
-#include <vector>
 
 using namespace asf;
 
-void plotSpectrogram(Wave &wave, int seg_length);
-
 int main()
 {
+  /*
   auto cos_sig = cosSignal(440, 1.0, 0);// NOLINT
   auto sin_sig = sinSignal(880, 0.5, 0);// NOLINT
 
@@ -73,19 +64,29 @@ int main()
 
   segment2.normalize();
   // segment2.apodize();
-  // segment2.plot();
+  // segment2.plot();*/
 
-  Chirp chirp_signal = Chirp(220.0, 440.0);// NOLINT
-  const Wave chirp_wave = chirp_signal.makeWave(1.0);
-  plotSpectrogram(wave, 512);// NOLINT
+  // Demonstrating spectral leakage and Hamming window
+  std::unique_ptr<Sinusoid> signal = sinSignal(440);// NOLINT
+  double duration = signal->period() * 30;// NOLINT
+  Wave wave = signal->makeWave(duration);
+  wave.plot();
+  
+  Spectrum spectrum = wave.makeSpectrum();
+  spectrum.plot(800);// NOLINT
 
+
+
+  double duration2 = signal->period() * 30.25;// NOLINT
+  Wave wave2 = signal->makeWave(duration2);
+  wave2.plot();
+
+  Spectrum spec2 = wave2.makeSpectrum();
+  spec2.plot(880);// NOLINT
+
+  wave2.hamming();
+  Spectrum spec3 = wave2.makeSpectrum();
+  spec3.plot(880);// NOLINT
+  
   return 0;
-}
-
-void plotSpectrogram(Wave &wave, int seg_length)
-{
-  const Spectrogram spectrogram = wave.makeSpectrogram(seg_length);
-  std::cout << "Time resolution (s): " << spectrogram.timeRes() << "\n";
-  std::cout << "Frequency resolution (Hz): " << spectrogram.freqRes() << "\n";
-  spectrogram.plot(700);// NOLINT
 }
