@@ -1,5 +1,4 @@
 #include <NumCpp/Core/Constants.hpp>
-#include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/arange.hpp>
 #include <NumCpp/Functions/cos.hpp>
 #include <NumCpp/Functions/cumsum.hpp>

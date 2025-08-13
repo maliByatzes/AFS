@@ -1,3 +1,4 @@
+#include "asfproject/spectrogram.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/audio_engine.h>
 #include <asfproject/audio_file.h>
@@ -11,6 +12,8 @@
 #include <vector>
 
 using namespace asf;
+
+void plotSpectrogram(Wave &wave, int seg_length);
 
 int main()
 {
@@ -73,9 +76,16 @@ int main()
   // segment2.plot();
 
   Chirp chirp_signal = Chirp(220.0, 440.0);// NOLINT
-  Wave chirp_wave = chirp_signal.makeWave(1.0);
-  Spectrum chirp_spectrum = chirp_wave.makeSpectrum();
-  chirp_spectrum.plot(700);// NOLINT
-  
+  const Wave chirp_wave = chirp_signal.makeWave(1.0);
+  plotSpectrogram(wave, 512);// NOLINT
+
   return 0;
+}
+
+void plotSpectrogram(Wave &wave, int seg_length)
+{
+  const Spectrogram spectrogram = wave.makeSpectrogram(seg_length);
+  std::cout << "Time resolution (s): " << spectrogram.timeRes() << "\n";
+  std::cout << "Frequency resolution (Hz): " << spectrogram.freqRes() << "\n";
+  spectrogram.plot(700);// NOLINT
 }
