@@ -28,6 +28,7 @@ public:
   static void stereoToMono(IAudioFile &);
   static void applyLowPassFilter(IAudioFile &);
   static void downSampling(IAudioFile &);
+  static void applyHammingWindow(IAudioFile &);
   // NOTE: This may be temporary
   static void processServerSide(IAudioFile &);
 };

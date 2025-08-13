@@ -1,5 +1,6 @@
 #include "asfproject/spectrum.h"
 #include "asfproject/wave.h"
+#include <NumCpp/Functions/hamming.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
 #include <asfproject/audio_engine.h>
@@ -98,7 +99,7 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
     std::vector<double> pcm_data = audio_file.getPCMData();
     std::vector<double> new_pcm_data(pcm_data.size() / 4);
 
-    for (size_t i = 0; i < pcm_data.max_size(); i += 4) {
+    for (size_t i = 0; i < pcm_data.size(); i += 4) {
       const double sum = pcm_data[i] + pcm_data[i + 1] + pcm_data[i + 2] + pcm_data[i + 3];
       const double avg = sum / 4;
 
@@ -107,6 +108,15 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
 
     audio_file.setPCMData(new_pcm_data, audio_file.getSampleRate() / 4, audio_file.getNumChannels());
   }
+}
+
+void AudioEngine::applyHammingWindow(IAudioFile &audio_file)
+{
+  // use 1024
+  std::vector<double> pcm_data = audio_file.getPCMData();
+  nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
+  ys *= nc::hamming(512);// NOLINT   
+  audio_file.setPCMData(ys.toStlVector(), audio_file.getSampleRate(), audio_file.getNumChannels());
 }
 
 void AudioEngine::processServerSide(IAudioFile &audio_file)
@@ -121,6 +131,8 @@ void AudioEngine::processServerSide(IAudioFile &audio_file)
   downSampling(audio_file);
   
   // 4. Hamming window
+  applyHammingWindow(audio_file);
+  
   // 5. FFT
 }
 

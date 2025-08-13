@@ -1,7 +1,13 @@
+#include "asfproject/audio_engine.h"
+#include "asfproject/audio_file.h"
 #include "asfproject/spectrum.h"
+#include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <asfproject/signal.h>
 #include <asfproject/wave.h>
+#include <cstdlib>
+#include <iostream>
 #include <memory>
+#include <vector>
 
 using namespace asf;
 
@@ -64,7 +70,7 @@ int main()
 
   segment2.normalize();
   // segment2.apodize();
-  // segment2.plot();*/
+  // segment2.plot();
 
   // Demonstrating spectral leakage and Hamming window
   std::unique_ptr<Sinusoid> signal = sinSignal(440);// NOLINT
@@ -86,7 +92,25 @@ int main()
 
   wave2.hamming();
   Spectrum spec3 = wave2.makeSpectrum();
-  spec3.plot(880);// NOLINT
-  
+  spec3.plot(880);// NOLINT*/
+
+  const AudioEngine engine;
+
+  std::unique_ptr<IAudioFile> wave_audio = engine.loadAudioFile("audio/92002__jcveliz__violin-origional.wav");
+  if (!wave_audio) {
+    std::cerr << "Failed to load WAV file.\n";
+    return EXIT_FAILURE;
+  }
+
+  engine.processServerSide(*wave_audio);  
+
+  // Plot the whole wav file wave.
+  std::vector<double> pcm_data = wave_audio->getPCMData();
+  const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
+
+  const Wave wave(ys, wave_audio->getSampleRate());
+
+  wave.plot();
+    
   return 0;
 }
