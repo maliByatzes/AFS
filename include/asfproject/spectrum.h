@@ -46,8 +46,8 @@ public:
 
   [[nodiscard]] double freqRes() const;
 
-  void plot(std::optional<double> high);
-  void plotPower(std::optional<double> high);
+  void plot(std::optional<double> high = std::nullopt);
+  void plotPower(std::optional<double> high = std::nullopt);
 
   [[nodiscard]] std::vector<std::pair<double, double>> peaks() const;
 

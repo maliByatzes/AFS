@@ -1,4 +1,5 @@
 #include <NumCpp/Core/Constants.hpp>
+#include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/arange.hpp>
 #include <NumCpp/Functions/cos.hpp>
 #include <NumCpp/Functions/cumsum.hpp>
@@ -110,30 +111,49 @@ Chirp::Chirp(double start, double end, double amp) : m_start(start), m_end(end),
 nc::NdArray<double> Chirp::evaluate(const nc::NdArray<double> &ts) const// NOLINT
 {
   auto interpolate = [](const nc::NdArray<double> &tss, double f0, double f1) {// NOLINT
-    double t0 = tss.front();// NOLINT
-    double t1 = tss.back();// NOLINT
-    return (f0 + (f1 - f0)) * (tss - t0) / (t1 - t0);
+    if (tss.size() < 2) {
+      if (tss.size() == 1) {
+        nc::NdArray<double> res(1, 1);
+        res[0] = f0;
+        return res;
+      }
+      return nc::NdArray<double>();
+    }
+
+    const double t0 = tss.front();// NOLINT
+    const double t1 = tss.back();// NOLINT
+
+    return f0 + (f1 - f0) * (tss - t0) / (t1 - t0);
   };
 
   // compute the frequencies
   const nc::NdArray<double> freqs = interpolate(ts, m_start, m_end);
 
   // compute the time intervals
-  const nc::NdArray<double> dts = nc::diff(ts);// append ts.back()
+  const nc::NdArray<double> dts_diff = nc::diff(ts);
+  nc::NdArray<double> dts(1, ts.size());
+
+  if (ts.size() > 1) {
+    for (int i = 0; i < int(dts_diff.size()); ++i) { dts[i] = dts_diff[i]; }// NOLINT
+    dts.back() = dts_diff.back();
+  } else {
+    dts[0] = 0.0;
+  }
 
   // compute the changes in phase
-  const nc::NdArray<double> dphis1 = nc::constants::twoPi * freqs * dts; 
-  const nc::NdArray<double> dphis2 = nc::roll(dphis1, 1);
+  nc::NdArray<double> dphis = nc::constants::twoPi * freqs * dts;
+  dphis = nc::roll(dphis, 1);
 
   // compute phase
-  const nc::NdArray<double> phases = nc::cumsum(dphis2);
+  const nc::NdArray<double> phases = nc::cumsum(dphis);
 
   // compute the amplitudes
   nc::NdArray<double> ys = m_amp * nc::cos(phases);
+
   return ys;
 }
 
-double Chirp::period() const { throw std::runtime_error("Non-periodic signal."); }
+double Chirp::period() const { throw std::logic_error("Non-periodic signal."); }
 
 std::unique_ptr<Signal> Chirp::clone() const { return std::make_unique<Chirp>(*this); }
 
