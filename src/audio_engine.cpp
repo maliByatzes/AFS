@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -99,9 +100,7 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
     std::vector<double> pcm_data = audio_file.getPCMData();
     std::vector<double> new_pcm_data(pcm_data.size() / 4);
 
-    for (size_t i = 0; i < pcm_data.size(); i += 4) {
-      new_pcm_data.push_back(pcm_data[i]);
-    }
+    for (size_t i = 0; i < pcm_data.size(); i += 4) { new_pcm_data.push_back(pcm_data[i]); }
 
     audio_file.setPCMData(new_pcm_data, audio_file.getSampleRate() / 4, audio_file.getNumChannels());
   }
@@ -112,8 +111,44 @@ void AudioEngine::applyHammingWindow(IAudioFile &audio_file)
   // use 1024
   std::vector<double> pcm_data = audio_file.getPCMData();
   nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
-  ys *= nc::hamming(512);// NOLINT   
+  ys *= nc::hamming(512);// NOLINT
   audio_file.setPCMData(ys.toStlVector(), audio_file.getSampleRate(), audio_file.getNumChannels());
+}
+
+void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
+{
+  const std::vector<double> pcm_data = audio_file.getPCMData();
+
+  // 1. Define the Hamming window for all calculations
+  const int sample_window = 1024;
+  std::vector<double> window(sample_window);
+
+  for (size_t i = 0; i < window.size(); ++i) {
+    double ans = 0.54 - (0.46 * std::cos((2.0 * M_PI * static_cast<double>(i)) / (sample_window - 1)));// NOLINT
+    window[i] = ans;
+  }
+
+  // 2. Slide the window and perform calculations
+  const int half_window = sample_window / 2;
+  std::vector<std::vector<double>> result(half_window, std::vector<double>(half_window));
+  std::cout << "...\n";
+
+  for (size_t i = 0; i < pcm_data.size(); i += half_window) {
+    std::vector<double> data_block(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + half_window);
+    std::vector<double> res(sample_window);
+
+    for (size_t j = 0; j < window.size(); ++j) { res.push_back(data_block[i] * window[i]); }
+
+    result.push_back(res);
+  }
+
+  std::cout << "[ ";
+  for (const auto &res : result) {
+    std::cout << "[ ";
+    for (const double vvv : res) { std::cout << vvv << ", "; }
+    std::cout << "], ";
+  }
+  std::cout << "]\n";
 }
 
 void AudioEngine::processServerSide(IAudioFile &audio_file)
@@ -126,10 +161,10 @@ void AudioEngine::processServerSide(IAudioFile &audio_file)
 
   // 3. Downsampling
   downSampling(audio_file);
-  
+
   // 4. Hamming window
   // applyHammingWindow(audio_file);
-  
+
   // 5. FFT
 }
 

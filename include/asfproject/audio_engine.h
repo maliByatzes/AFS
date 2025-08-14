@@ -29,6 +29,7 @@ public:
   static void applyLowPassFilter(IAudioFile &);
   static void downSampling(IAudioFile &);
   static void applyHammingWindow(IAudioFile &);
+  static void shortTimeFourierTransform(IAudioFile &);
   // NOTE: This may be temporary
   static void processServerSide(IAudioFile &);
 };

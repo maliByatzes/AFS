@@ -1,13 +1,8 @@
 #include "asfproject/audio_engine.h"
 #include "asfproject/audio_file.h"
-#include "asfproject/spectrum.h"
-#include <NumCpp/NdArray/NdArrayCore.hpp>
-#include <asfproject/signal.h>
-#include <asfproject/wave.h>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
-#include <vector>
 
 using namespace asf;
 
@@ -102,8 +97,9 @@ int main()
     return EXIT_FAILURE;
   }
 
-  engine.processServerSide(*wave_audio);  
+  engine.shortTimeFourierTransform(*wave_audio);
 
+  /*
   // Plot the whole wav file wave.
   std::vector<double> pcm_data = wave_audio->getPCMData();
   const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
@@ -111,7 +107,7 @@ int main()
   const Wave wave(ys, wave_audio->getSampleRate());
 
   Wave segment = wave.segment(0, 2.0);// NOLINT
-  segment.plot();
+  segment.plot();*/
     
   return 0;
 }
