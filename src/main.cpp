@@ -110,7 +110,8 @@ int main()
 
   const Wave wave(ys, wave_audio->getSampleRate());
 
-  wave.plot();
+  Wave segment = wave.segment(0, 2.0);// NOLINT
+  segment.plot();
     
   return 0;
 }

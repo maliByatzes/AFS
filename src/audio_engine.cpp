@@ -100,10 +100,7 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
     std::vector<double> new_pcm_data(pcm_data.size() / 4);
 
     for (size_t i = 0; i < pcm_data.size(); i += 4) {
-      const double sum = pcm_data[i] + pcm_data[i + 1] + pcm_data[i + 2] + pcm_data[i + 3];
-      const double avg = sum / 4;
-
-      new_pcm_data.push_back(avg);
+      new_pcm_data.push_back(pcm_data[i]);
     }
 
     audio_file.setPCMData(new_pcm_data, audio_file.getSampleRate() / 4, audio_file.getNumChannels());
@@ -131,7 +128,7 @@ void AudioEngine::processServerSide(IAudioFile &audio_file)
   downSampling(audio_file);
   
   // 4. Hamming window
-  applyHammingWindow(audio_file);
+  // applyHammingWindow(audio_file);
   
   // 5. FFT
 }
