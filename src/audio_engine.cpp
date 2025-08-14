@@ -130,17 +130,38 @@ void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
 
   // 2. Slide the window and perform calculations
   const int half_window = sample_window / 2;
-  std::vector<std::vector<double>> result(half_window, std::vector<double>(half_window));
-  std::cout << "...\n";
+  // std::vector<std::vector<double>> result(half_window, std::vector<double>(half_window));
 
+
+  int end_of_last_win = 0;
+  for (size_t x = 0; x < pcm_data.size(); x += half_window) {// NOLINT
+    if (x + sample_window > pcm_data.size()) {
+      end_of_last_win = int(x) + (sample_window - 1);
+      break;
+    }
+  }
+
+  const int num_of_zeros = end_of_last_win - (int(pcm_data.size()) - 1);
+  std::cout << end_of_last_win << "\n";
+  std::cout << num_of_zeros << "\n";
+
+  /*
   for (size_t i = 0; i < pcm_data.size(); i += half_window) {
-    std::vector<double> data_block(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + half_window);
+    std::vector<double> data_block(sample_window);
+    if (i + half_window > pcm_data.size()) {
+      const std::vector<double> temp(pcm_data.begin() + int(i), pcm_data.end());
+      data_block = temp;
+    } else {
+      const std::vector<double> temp(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + sample_window);
+      data_block = temp;
+    }
     std::vector<double> res(sample_window);
 
-    for (size_t j = 0; j < window.size(); ++j) { res.push_back(data_block[i] * window[i]); }
+    for (size_t j = 0; j < window.size(); ++j) { res.push_back(data_block[j] * window[j]); }
 
     result.push_back(res);
   }
+
 
   std::cout << "[ ";
   for (const auto &res : result) {
@@ -148,7 +169,7 @@ void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
     for (const double vvv : res) { std::cout << vvv << ", "; }
     std::cout << "], ";
   }
-  std::cout << "]\n";
+  std::cout << "]\n";*/
 }
 
 void AudioEngine::processServerSide(IAudioFile &audio_file)
