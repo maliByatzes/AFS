@@ -1,0 +1,38 @@
+#ifndef audio_engine_h_
+#define audio_engine_h_
+
+#include <afsproject/audio_file.h>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace afs {
+
+enum class AudioFormat : uint8_t { Wave, Aiff, Mp3, Unsupported };
+
+class IAudioFile;
+
+class AudioEngine// NOLINT
+{
+public:
+  AudioEngine() = default;
+  ~AudioEngine() = default;
+
+  static std::unique_ptr<IAudioFile> loadAudioFile(const std::string &);
+  static bool saveAudioFile(const IAudioFile &, const std::string &);
+
+  // void play(IAudioFile &);
+  // TODO: Separate methods that do not belong here to like a `AFS` class?? IDK
+  // Process: AudioEngine => AFS => ???
+  static std::vector<double> getPCMData(const IAudioFile &);
+  static void normalizePCMData(IAudioFile &);
+  static void stereoToMono(IAudioFile &);
+  static void applyLowPassFilter(IAudioFile &);
+  static void downSampling(IAudioFile &);
+  static std::vector<std::vector<double>> shortTimeFourierTransform(IAudioFile &);
+};
+
+}// namespace afs
+
+#endif

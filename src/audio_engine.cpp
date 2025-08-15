@@ -1,21 +1,19 @@
-#include "asfproject/fft.h"
-#include "asfproject/spectrum.h"
-#include "asfproject/wave.h"
-#include <NumCpp/Functions/hamming.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
-#include <asfproject/audio_engine.h>
-#include <asfproject/audio_file.h>
-#include <asfproject/wave_file.h>
+#include <afsproject/audio_engine.h>
+#include <afsproject/audio_file.h>
+#include <afsproject/fft.h>
+#include <afsproject/spectrum.h>
+#include <afsproject/wave.h>
+#include <afsproject/wave_file.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 std::unique_ptr<IAudioFile> AudioEngine::loadAudioFile(const std::string &file_path)
 {
@@ -35,7 +33,7 @@ bool AudioEngine::saveAudioFile(const IAudioFile &audio_file, const std::string 
   return audio_file.save(file_path);
 }
 
-std::vector<double> AudioEngine::getPCMData(IAudioFile &audio_file) { return audio_file.getPCMData(); }
+std::vector<double> AudioEngine::getPCMData(const IAudioFile &audio_file) { return audio_file.getPCMData(); }
 
 void AudioEngine::stereoToMono(IAudioFile &audio_file)
 {
@@ -107,16 +105,7 @@ void AudioEngine::downSampling(IAudioFile &audio_file)
   }
 }
 
-void AudioEngine::applyHammingWindow(IAudioFile &audio_file)
-{
-  // use 1024
-  std::vector<double> pcm_data = audio_file.getPCMData();
-  nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
-  ys *= nc::hamming(512);// NOLINT
-  audio_file.setPCMData(ys.toStlVector(), audio_file.getSampleRate(), audio_file.getNumChannels());
-}
-
-void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
+std::vector<std::vector<double>> AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
 {
   stereoToMono(audio_file);
   applyLowPassFilter(audio_file);
@@ -159,34 +148,17 @@ void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
     result.push_back(res);
   }
 
-  // Apply FFT on vectors inside the result vector
+  // 3. Apply FFT on vectors inside the result vector
   std::vector<std::vector<double>> matrix{};
-  
-  for (auto &ys : result) {
+
+  for (const auto &ys : result) {
     const VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys);
     std::vector<double> magnitudes{};
-    std::ranges::for_each(hs_vec, [&](auto &value) {
-      magnitudes.push_back(std::abs(value));
-    });
+    std::ranges::for_each(hs_vec, [&](const auto &value) { magnitudes.push_back(std::abs(value)); });
     matrix.push_back(magnitudes);
-  }   
+  }
+
+  return matrix;
 }
 
-void AudioEngine::processServerSide(IAudioFile &audio_file)
-{
-  // 1. Stereo to Mono
-  stereoToMono(audio_file);
-
-  // 2. Low pass filter
-  applyLowPassFilter(audio_file);
-
-  // 3. Downsampling
-  downSampling(audio_file);
-
-  // 4. Hamming window
-  // applyHammingWindow(audio_file);
-
-  // 5. FFT
-}
-
-}// namespace asf
+}// namespace afs

@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <array>
-#include <asfproject/either.h>
-#include <asfproject/wave_file.h>
+#include <afsproject/either.h>
+#include <afsproject/wave_file.h>
 #include <bit>
 #include <cassert>
 #include <cmath>
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 bool WaveFile::load(const std::string &file_path)
 {
@@ -98,7 +98,7 @@ Either<WaveFmtChunk, std::string> WaveFile::decodeFmtChunk()
 
   fmt_chunk.index = getIdxOfChunk("fmt ", 12)// NOLINT
                       .leftMap([](auto idx) { return int(idx); })
-                      .rightMap([](auto &msg) {
+                      .rightMap([](const auto &msg) {
                         std::cerr << msg;
                         return -1;
                       })
@@ -150,7 +150,7 @@ WaveDataChunk WaveFile::decodeDataChunk()
 
   data_chunk.index = getIdxOfChunk("data", 12)// NOLINT
                        .leftMap([](auto idx) { return int(idx); })
-                       .rightMap([](auto &msg) {
+                       .rightMap([](const auto &msg) {
                          std::cerr << msg;
                          return -1;
                        })
@@ -195,7 +195,7 @@ void WaveFile::decode16Bits(const WaveFmtChunk &fmt_chunk, const std::vector<uin
   }
 }
 
-bool WaveFile::decodeSamples(const WaveFmtChunk &fmt_chunk, WaveDataChunk &data_chunk)
+bool WaveFile::decodeSamples(const WaveFmtChunk &fmt_chunk, const WaveDataChunk &data_chunk)
 {
   std::vector<uint8_t> data(size_t(data_chunk.ck_size));
   int offset = data_chunk.index + 8;// NOLINT
@@ -231,14 +231,14 @@ bool WaveFile::decodeWaveFile()
   const WaveHeaderChunk header_chunk = decodeHeaderChunk();
   const WaveFmtChunk fmt_chunk = decodeFmtChunk()
                                    .leftMap([](auto fck) { return fck; })
-                                   .rightMap([](auto &msg) {
+                                   .rightMap([](const auto &msg) {
                                      std::cerr << msg;
                                      WaveFmtChunk fmt_ck;
                                      fmt_ck.index = -1;
                                      return fmt_ck;
                                    })
                                    .join();
-  WaveDataChunk data_chunk = decodeDataChunk();
+  const WaveDataChunk data_chunk = decodeDataChunk();
 
   if (fmt_chunk.index == -1 || data_chunk.index == -1 || header_chunk.ck_id != "RIFF"
       || header_chunk.file_type_header != "WAVE") {
@@ -288,7 +288,7 @@ Either<size_t, std::string> WaveFile::getIdxOfChunk(const std::string &ck_id, si
 }
 
 
-bool WaveFile::writeDataToFile(std::vector<uint8_t> &data, const std::string &file_path)
+bool WaveFile::writeDataToFile(const std::vector<uint8_t> &data, const std::string &file_path)
 {
   std::ofstream out_file(file_path, std::ios::binary);
   if (!out_file.is_open()) { return false; }
@@ -437,19 +437,19 @@ int16_t convTwoBytesToInt16(std::span<uint8_t> data, std::endian endianness)
 
 void addStringToData(std::vector<uint8_t> &data, const std::string &str)
 {
-  for (const char val : str) { data.push_back(uint8_t(val)); }
+  std::ranges::for_each(str, [&](char val) { data.push_back(uint8_t(val)); });
 }
 
 void addInt32ToData(std::vector<uint8_t> &data, int32_t value)
 {
   const std::array<uint8_t, 4> bytes{ convInt32ToFourBytes(value) };
-  for (const auto &val : bytes) { data.push_back(val); }
+  std::ranges::copy(bytes, data.begin());
 }
 
 void addInt16ToData(std::vector<uint8_t> &data, int16_t value)
 {
   const std::array<uint8_t, 2> bytes{ convInt16ToTwoBytes(value) };
-  for (const auto &val : bytes) { data.push_back(val); }
+  std::ranges::copy(bytes, data.begin());
 }
 
 std::array<uint8_t, 4> convInt32ToFourBytes(int32_t value, std::endian endianness)
@@ -512,4 +512,4 @@ std::vector<double> scaleDownSamples(const std::vector<double> &samples)
   return scaled_samples;
 }
 
-}// namespace asf
+}// namespace afs

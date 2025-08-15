@@ -1,15 +1,15 @@
-#include "asfproject/spectrum.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
-#include <utility>
-#include <asfproject/spectrogram.h>
+#include <afsproject/spectrogram.h>
+#include <afsproject/spectrum.h>
 #include <cstddef>
 #include <map>
 #include <matplot/freestanding/axes_functions.h>
 #include <matplot/freestanding/plot.h>
-#include <vector>
 #include <optional>
+#include <utility>
+#include <vector>
 
-namespace asf {
+namespace afs {
 
 Spectrogram::Spectrogram(std::map<double, Spectrum> spec_map, int seg_length)
   : m_spec_map(std::move(spec_map)), m_seg_length(seg_length)
@@ -41,7 +41,7 @@ void Spectrogram::plot(std::optional<double> high) const
   long i = high.has_value() ? findIndex(high.value(), fs_full) : -1;// NOLINT
 
   const std::vector<double> fs(fs_full.begin(), fs_full.begin() + i);// NOLINT
-  const std::vector<double> ts = times(); // NOLINT
+  const std::vector<double> ts = times();// NOLINT
 
   // make the array
   std::vector<std::vector<double>> arr(fs.size(), std::vector<double>(ts.size()));
@@ -65,4 +65,4 @@ void Spectrogram::plot(std::optional<double> high) const
   matplot::show();
 }
 
-}// namespace asf
+}// namespace afs

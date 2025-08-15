@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <array>
-#include <asfproject/either.h>
-#include <asfproject/process_audio.h>
+#include <afsproject/either.h>
+#include <afsproject/process_audio.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 ProcessAudio::ProcessAudio()
   : sampleRate(DEFAULT_SAMPLE_RATE), bitDepth(DEFAULT_BIT_DEPTH), fileFormat(AudioFormat::WAVE)
@@ -545,4 +545,4 @@ std::array<uint8_t, 2> convertInt16ToTwoBytes(int16_t value, Endianness endianne
   return bytes;
 }
 
-}// namespace asf
+}// namespace afs

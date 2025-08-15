@@ -7,9 +7,9 @@
 #include <NumCpp/Functions/real.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
-#include <asfproject/fft.h>
-#include <asfproject/spectrum.h>
-#include <asfproject/wave.h>
+#include <afsproject/fft.h>
+#include <afsproject/spectrum.h>
+#include <afsproject/wave.h>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 long findIndex(double value, const nc::NdArray<double> &arr)
 {
@@ -334,4 +334,4 @@ template<typename T> nc::NdArray<T> ifftShift(const nc::NdArray<T> &arr)
   return shifted_arr;
 }
 
-}// namespace asf
+}// namespace afs

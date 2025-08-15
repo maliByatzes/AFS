@@ -7,7 +7,7 @@
 #include <NumCpp/Functions/sin.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
-#include <asfproject/signal.h>
+#include <afsproject/signal.h>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 Wave Signal::makeWave(double duration, double start, int framerate) const// NOLINT
 {
@@ -171,4 +171,4 @@ std::unique_ptr<Signal> operator+(const Signal &sig1, const Signal &sig2)
   return std::make_unique<SumSignal>(sig1.clone(), sig2.clone());
 }
 
-}// namespace asf
+}// namespace afs

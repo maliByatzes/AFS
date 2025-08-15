@@ -1,10 +1,11 @@
-#include <asfproject/fft.h>
+#include <afsproject/fft.h>
+#include <algorithm>
 #include <fftw3.h>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
-VecComplexDoub FFT::convertToFrequencyDomain(std::vector<double> &samples)
+VecComplexDoub FFT::convertToFrequencyDomain(const std::vector<double> &samples)
 {
   // NOLINTBEGIN
   size_t N = samples.size();
@@ -58,10 +59,12 @@ std::vector<double> FFT::convertToTimeDomain(VecComplexDoub &real_data, size_t o
   fftw_destroy_plan(plan);
   fftw_free(input);
 
-  for (double &val : output) { val /= static_cast<double>(original_N); }
+  std::ranges::for_each(output, [&](double &val) {
+    val /= static_cast<double>(original_N);
+  });
 
   return output;
   // NOLINTEND
 }
 
-}// namespace asf
+}// namespace afs

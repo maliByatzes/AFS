@@ -1,14 +1,9 @@
-#include <NumCpp/Functions/hamming.hpp>
-#include <asfproject/fft.h>
-#include <asfproject/signal.h>
-#include <asfproject/wave_file.h>
-#include <asfproject/spectrum.h>
-#include <asfproject/spectrogram.h>
 #include <NumCpp/Core/Enums.hpp>
 #include <NumCpp/Functions/abs.hpp>
 #include <NumCpp/Functions/arange.hpp>
 #include <NumCpp/Functions/concatenate.hpp>
 #include <NumCpp/Functions/flip.hpp>
+#include <NumCpp/Functions/hamming.hpp>
 #include <NumCpp/Functions/linspace.hpp>
 #include <NumCpp/Functions/max.hpp>
 #include <NumCpp/Functions/ones.hpp>
@@ -16,7 +11,12 @@
 #include <NumCpp/Functions/round.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <algorithm>
-#include <asfproject/wave.h>
+#include <afsproject/fft.h>
+#include <afsproject/signal.h>
+#include <afsproject/spectrogram.h>
+#include <afsproject/spectrum.h>
+#include <afsproject/wave.h>
+#include <afsproject/wave_file.h>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-namespace asf {
+namespace afs {
 
 Wave::Wave(const nc::NdArray<double> &ys) : m_ys(ys), m_framerate(DEF_FRAMERATE)
 {
@@ -61,23 +61,15 @@ double Wave::getXFactor(std::map<std::string, double> &options)
   return xfactor;
 }
 
-void Wave::hamming()
-{
-  m_ys *= nc::hamming(int32_t(m_ys.size()));
-}
+void Wave::hamming() { m_ys *= nc::hamming(int32_t(m_ys.size())); }
 
-void Wave::window(nc::NdArray<double> &window)
-{
-  m_ys *= window;  
-}
+void Wave::window(nc::NdArray<double> &window) { m_ys *= window; }
 
 Spectrogram Wave::makeSpectrogram(int seg_length, bool win_flag)
 {
   nc::NdArray<double> window;
-  
-  if (win_flag) {
-   window = nc::hamming(seg_length);
-  }
+
+  if (win_flag) { window = nc::hamming(seg_length); }
 
   int i = 0;// NOLINT
   int j = seg_length;// NOLINT
@@ -88,9 +80,7 @@ Spectrogram Wave::makeSpectrogram(int seg_length, bool win_flag)
 
   while (j < int(m_ys.size())) {// NOLINT
     Wave segment = this->slice(i, j);
-    if (win_flag) {
-      segment.window(window);
-    }
+    if (win_flag) { segment.window(window); }
 
     // the nominal time for this segment is the midpoint
     const double midpoint = (segment.start() + segment.end()) / 2;
@@ -157,14 +147,14 @@ Wave Wave::slice(int i, int j) const// NOLINT
 
 void Wave::apodize(double denom, double duration)// NOLINT
 {
-  m_ys = ::asf::apodize(m_ys, m_framerate, denom, duration);
+  m_ys = ::afs::apodize(m_ys, m_framerate, denom, duration);
 }
 
-void Wave::normalize(double amp) { m_ys = ::asf::normalize(m_ys, amp); }
+void Wave::normalize(double amp) { m_ys = ::afs::normalize(m_ys, amp); }
 
 template<typename dtype> nc::NdArray<double> Wave::quantize(double bound) const
 {
-  return ::asf::quantize<dtype>(m_ys, bound);
+  return ::afs::quantize<dtype>(m_ys, bound);
 }
 
 void Wave::write(const std::string &filename) const
@@ -225,7 +215,7 @@ template<typename dtype> nc::NdArray<dtype> quantize(const nc::NdArray<double> &
 
   if (max_abs_val > 1.0) {
     std::cerr << "Warning: normalizing before quantizing.\n";
-    const nc::NdArray<double> norm_ys = ::asf::normalize(ys);
+    const nc::NdArray<double> norm_ys = ::afs::normalize(ys);
     return nc::round(norm_ys * bound).astype<dtype>();
   }
 
@@ -234,7 +224,7 @@ template<typename dtype> nc::NdArray<dtype> quantize(const nc::NdArray<double> &
 
 Spectrum Wave::makeSpectrum()
 {
-  std::vector<double> ys_vec = m_ys.toStlVector();
+  const std::vector<double> ys_vec = m_ys.toStlVector();
   VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys_vec);
   nc::NdArray<std::complex<double>> hs = nc::NdArray<std::complex<double>>(1, uint32_t(hs_vec.size()));// NOLINT
   std::ranges::copy(hs_vec, hs.begin());
@@ -243,4 +233,4 @@ Spectrum Wave::makeSpectrum()
   return { hs, fs, m_framerate, size_t(n) };
 }
 
-}// namespace asf
+}// namespace afs
