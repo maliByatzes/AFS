@@ -1,6 +1,6 @@
 
 function(
-  asfproject_set_project_warnings
+  afsproject_set_project_warnings
   project_name
   WARNINGS_AS_ERRORS
   MSVC_WARNINGS

@@ -1,5 +1,5 @@
 
-function(asfproject_enable_cache)
+function(afsproject_enable_cache)
   set(CACHE_OPTION
       "ccache"
       CACHE STRING "Compiler cache to be used")

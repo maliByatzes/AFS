@@ -21,16 +21,6 @@ public:
 
   static std::unique_ptr<IAudioFile> loadAudioFile(const std::string &);
   static bool saveAudioFile(const IAudioFile &, const std::string &);
-
-  // void play(IAudioFile &);
-  // TODO: Separate methods that do not belong here to like a `AFS` class?? IDK
-  // Process: AudioEngine => AFS => ???
-  static std::vector<double> getPCMData(const IAudioFile &);
-  static void normalizePCMData(IAudioFile &);
-  static void stereoToMono(IAudioFile &);
-  static void applyLowPassFilter(IAudioFile &);
-  static void downSampling(IAudioFile &);
-  static std::vector<std::vector<double>> shortTimeFourierTransform(IAudioFile &);
 };
 
 }// namespace afs

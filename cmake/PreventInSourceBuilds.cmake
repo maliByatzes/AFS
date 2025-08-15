@@ -1,4 +1,4 @@
-function(asfproject_assure_out_of_source_builds)
+function(afsproject_assure_out_of_source_builds)
   get_filename_component(srcdir "${CMAKE_SOURCE_DIR}" REALPATH)
   get_filename_component(bindir "${CMAKE_BINARY_DIR}" REALPATH)
 
@@ -11,4 +11,4 @@ function(asfproject_assure_out_of_source_builds)
   endif()
 endfunction()
 
-asfproject_assure_out_of_source_builds()
+afsproject_assure_out_of_source_builds()

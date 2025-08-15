@@ -1,4 +1,4 @@
-macro(asfproject_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
+macro(afsproject_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
   find_program(CPPCHECK cppcheck)
   if(CPPCHECK)
 
@@ -31,6 +31,7 @@ macro(asfproject_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
           # ignores static_assert type failures
           --suppress=knownConditionTrueFalse
           --inconclusive
+          --check-level=exhaustive
           --suppress=${SUPPRESS_DIR})
     else()
       # if the user provides a CPPCHECK_OPTIONS with a template specified, it will override this template
@@ -51,7 +52,7 @@ macro(asfproject_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
   endif()
 endmacro()
 
-macro(asfproject_enable_clang_tidy target WARNINGS_AS_ERRORS)
+macro(afsproject_enable_clang_tidy target WARNINGS_AS_ERRORS)
 
   find_program(CLANGTIDY clang-tidy)
   if(CLANGTIDY)
@@ -104,7 +105,7 @@ macro(asfproject_enable_clang_tidy target WARNINGS_AS_ERRORS)
   endif()
 endmacro()
 
-macro(asfproject_enable_include_what_you_use)
+macro(afsproject_enable_include_what_you_use)
   find_program(INCLUDE_WHAT_YOU_USE include-what-you-use)
   if(INCLUDE_WHAT_YOU_USE)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${INCLUDE_WHAT_YOU_USE})

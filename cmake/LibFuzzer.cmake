@@ -1,4 +1,4 @@
-function(asfproject_check_libfuzzer_support var_name)
+function(afsproject_check_libfuzzer_support var_name)
   set(LibFuzzerTestSource
       "
 #include <cstdint>

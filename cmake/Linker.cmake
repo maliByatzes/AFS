@@ -1,4 +1,4 @@
-macro(asfproject_configure_linker project_name)
+macro(afsproject_configure_linker project_name)
   include(CheckCXXCompilerFlag)
 
   set(USER_LINKER_OPTION
@@ -18,7 +18,7 @@ macro(asfproject_configure_linker project_name)
         "Using custom linker: '${USER_LINKER_OPTION}', explicitly supported entries are ${USER_LINKER_OPTION_VALUES}")
   endif()
 
-  if(NOT asfproject_ENABLE_USER_LINKER)
+  if(NOT afsproject_ENABLE_USER_LINKER)
     return()
   endif()
 

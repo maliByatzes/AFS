@@ -2,7 +2,7 @@
 include(CheckCXXCompilerFlag)
 
 macro(
-  asfproject_enable_hardening
+  afsproject_enable_hardening
   target
   global
   ubsan_minimal_runtime)

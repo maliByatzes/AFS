@@ -1,5 +1,5 @@
 function(
-  asfproject_enable_sanitizers
+  afsproject_enable_sanitizers
   project_name
   ENABLE_SANITIZER_ADDRESS
   ENABLE_SANITIZER_LEAK

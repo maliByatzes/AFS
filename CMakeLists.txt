@@ -12,21 +12,21 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Set the project name and language
 project(
-  asfproject
+  afsproject
   VERSION 0.0.1
-  LANGUAGES CXX C)
+  LANGUAGES CXX)
 
 include(cmake/PreventInSourceBuilds.cmake)
 include(ProjectOptions.cmake)
 
 
-asfproject_setup_options()
+afsproject_setup_options()
 
-asfproject_global_options()
+afsproject_global_options()
 include(Dependencies.cmake)
-asfproject_setup_dependencies()
+afsproject_setup_dependencies()
 
-asfproject_local_options()
+afsproject_local_options()
 
 # don't know if this should be set globally from here or not...
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -40,13 +40,13 @@ string(
             8
             GIT_SHORT_SHA)
 
-target_compile_features(asfproject_options INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
+target_compile_features(afsproject_options INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
 
-add_library(asfproject::asfproject_options ALIAS asfproject_options)
-add_library(asfproject::asfproject_warnings ALIAS asfproject_warnings)
+add_library(afsproject::afsproject_options ALIAS afsproject_options)
+add_library(afsproject::afsproject_warnings ALIAS afsproject_warnings)
 
-#add_library(asfproject::asfproject_options INTERFACE IMPORTED)
-#add_library(asfproject::asfproject_warnings INTERFACE IMPORTED)
+#add_library(afsproject::afsproject_options INTERFACE IMPORTED)
+#add_library(afsproject::afsproject_warnings INTERFACE IMPORTED)
 
 # configure files based on CMake configuration options
 # add_subdirectory(configured_files)
@@ -68,9 +68,9 @@ if(BUILD_TESTING)
 endif()
 
 
-if(asfproject_BUILD_FUZZ_TESTS)
+if(afsproject_BUILD_FUZZ_TESTS)
   message(AUTHOR_WARNING "Building Fuzz Tests, using fuzzing sanitizer https://www.llvm.org/docs/LibFuzzer.html")
-  if (NOT asfproject_ENABLE_SANITIZER_ADDRESS AND NOT asfproject_ENABLE_SANITIZER_THREAD)
+  if (NOT afsproject_ENABLE_SANITIZER_ADDRESS AND NOT afsproject_ENABLE_SANITIZER_THREAD)
     message(WARNING "You need asan or tsan enabled for meaningful fuzz testing")
   endif()
   add_subdirectory(fuzz_test)
@@ -86,7 +86,7 @@ if(MSVC)
 endif()
 
 # set the startup project for the "play" button in MSVC
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ASF)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT AFS)
 
 if(CMAKE_SKIP_INSTALL_RULES)
   return()
@@ -96,11 +96,11 @@ include(cmake/PackageProject.cmake)
 
 # Add other targets that you want installed here, by default we just package the one executable
 # we know we want to ship
-asfproject_package_project(
+afsproject_package_project(
   TARGETS
-  ASF
-  asfproject_options
-  asfproject_warnings
+  AFS
+  afsproject_options
+  afsproject_warnings
   # FIXME: this does not work! CK
   # PRIVATE_DEPENDENCIES_CONFIGURED project_options project_warnings
 )

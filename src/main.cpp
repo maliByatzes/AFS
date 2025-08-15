@@ -1,3 +1,4 @@
+#include "afsproject/afs.h"
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
 #include <cstdlib>
@@ -17,7 +18,8 @@ int main()
     return EXIT_FAILURE;
   }
 
-  // const std::vector<std::vector<double>> matrix{ engine.shortTimeFourierTransform(*wave_audio) };
-
+  AFS afs;
+  afs.shortTimeFourierTransform(*wave_audio);
+    
   return 0;
 }

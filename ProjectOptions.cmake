@@ -7,7 +7,7 @@ include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
 
 
-macro(asfproject_supports_sanitizers)
+macro(afsproject_supports_sanitizers)
   if((CMAKE_CXX_COMPILER_ID MATCHES ".*Clang.*" OR CMAKE_CXX_COMPILER_ID MATCHES ".*GNU.*") AND NOT WIN32)
 
     message(STATUS "Sanity checking UndefinedBehaviorSanitizer, it should be supported on this platform")
@@ -54,183 +54,183 @@ macro(asfproject_supports_sanitizers)
   endif()
 endmacro()
 
-macro(asfproject_setup_options)
-  option(asfproject_ENABLE_HARDENING "Enable hardening" ON)
-  option(asfproject_ENABLE_COVERAGE "Enable coverage reporting" OFF)
+macro(afsproject_setup_options)
+  option(afsproject_ENABLE_HARDENING "Enable hardening" ON)
+  option(afsproject_ENABLE_COVERAGE "Enable coverage reporting" OFF)
   cmake_dependent_option(
-    asfproject_ENABLE_GLOBAL_HARDENING
+    afsproject_ENABLE_GLOBAL_HARDENING
     "Attempt to push hardening options to built dependencies"
     ON
-    asfproject_ENABLE_HARDENING
+    afsproject_ENABLE_HARDENING
     OFF)
 
-  asfproject_supports_sanitizers()
+  afsproject_supports_sanitizers()
 
-  if(NOT PROJECT_IS_TOP_LEVEL OR asfproject_PACKAGING_MAINTAINER_MODE)
-    option(asfproject_ENABLE_IPO "Enable IPO/LTO" OFF)
-    option(asfproject_WARNINGS_AS_ERRORS "Treat Warnings As Errors" OFF)
-    option(asfproject_ENABLE_USER_LINKER "Enable user-selected linker" OFF)
-    option(asfproject_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_LEAK "Enable leak sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
-    option(asfproject_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
-    option(asfproject_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
-    option(asfproject_ENABLE_CPPCHECK "Enable cpp-check analysis" OFF)
-    option(asfproject_ENABLE_PCH "Enable precompiled headers" OFF)
-    option(asfproject_ENABLE_CACHE "Enable ccache" OFF)
+  if(NOT PROJECT_IS_TOP_LEVEL OR afsproject_PACKAGING_MAINTAINER_MODE)
+    option(afsproject_ENABLE_IPO "Enable IPO/LTO" OFF)
+    option(afsproject_WARNINGS_AS_ERRORS "Treat Warnings As Errors" OFF)
+    option(afsproject_ENABLE_USER_LINKER "Enable user-selected linker" OFF)
+    option(afsproject_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_LEAK "Enable leak sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
+    option(afsproject_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
+    option(afsproject_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+    option(afsproject_ENABLE_CPPCHECK "Enable cpp-check analysis" OFF)
+    option(afsproject_ENABLE_PCH "Enable precompiled headers" OFF)
+    option(afsproject_ENABLE_CACHE "Enable ccache" OFF)
   else()
-    option(asfproject_ENABLE_IPO "Enable IPO/LTO" ON)
-    option(asfproject_WARNINGS_AS_ERRORS "Treat Warnings As Errors" ON)
-    option(asfproject_ENABLE_USER_LINKER "Enable user-selected linker" OFF)
-    option(asfproject_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" ${SUPPORTS_ASAN})
-    option(asfproject_ENABLE_SANITIZER_LEAK "Enable leak sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" ${SUPPORTS_UBSAN})
-    option(asfproject_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
-    option(asfproject_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
-    option(asfproject_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
-    option(asfproject_ENABLE_CLANG_TIDY "Enable clang-tidy" ON)
-    option(asfproject_ENABLE_CPPCHECK "Enable cpp-check analysis" ON)
-    option(asfproject_ENABLE_PCH "Enable precompiled headers" OFF)
-    option(asfproject_ENABLE_CACHE "Enable ccache" ON)
+    option(afsproject_ENABLE_IPO "Enable IPO/LTO" ON)
+    option(afsproject_WARNINGS_AS_ERRORS "Treat Warnings As Errors" ON)
+    option(afsproject_ENABLE_USER_LINKER "Enable user-selected linker" OFF)
+    option(afsproject_ENABLE_SANITIZER_ADDRESS "Enable address sanitizer" ${SUPPORTS_ASAN})
+    option(afsproject_ENABLE_SANITIZER_LEAK "Enable leak sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_UNDEFINED "Enable undefined sanitizer" ${SUPPORTS_UBSAN})
+    option(afsproject_ENABLE_SANITIZER_THREAD "Enable thread sanitizer" OFF)
+    option(afsproject_ENABLE_SANITIZER_MEMORY "Enable memory sanitizer" OFF)
+    option(afsproject_ENABLE_UNITY_BUILD "Enable unity builds" OFF)
+    option(afsproject_ENABLE_CLANG_TIDY "Enable clang-tidy" ON)
+    option(afsproject_ENABLE_CPPCHECK "Enable cpp-check analysis" ON)
+    option(afsproject_ENABLE_PCH "Enable precompiled headers" OFF)
+    option(afsproject_ENABLE_CACHE "Enable ccache" ON)
   endif()
 
   if(NOT PROJECT_IS_TOP_LEVEL)
     mark_as_advanced(
-      asfproject_ENABLE_IPO
-      asfproject_WARNINGS_AS_ERRORS
-      asfproject_ENABLE_USER_LINKER
-      asfproject_ENABLE_SANITIZER_ADDRESS
-      asfproject_ENABLE_SANITIZER_LEAK
-      asfproject_ENABLE_SANITIZER_UNDEFINED
-      asfproject_ENABLE_SANITIZER_THREAD
-      asfproject_ENABLE_SANITIZER_MEMORY
-      asfproject_ENABLE_UNITY_BUILD
-      asfproject_ENABLE_CLANG_TIDY
-      asfproject_ENABLE_CPPCHECK
-      asfproject_ENABLE_COVERAGE
-      asfproject_ENABLE_PCH
-      asfproject_ENABLE_CACHE)
+      afsproject_ENABLE_IPO
+      afsproject_WARNINGS_AS_ERRORS
+      afsproject_ENABLE_USER_LINKER
+      afsproject_ENABLE_SANITIZER_ADDRESS
+      afsproject_ENABLE_SANITIZER_LEAK
+      afsproject_ENABLE_SANITIZER_UNDEFINED
+      afsproject_ENABLE_SANITIZER_THREAD
+      afsproject_ENABLE_SANITIZER_MEMORY
+      afsproject_ENABLE_UNITY_BUILD
+      afsproject_ENABLE_CLANG_TIDY
+      afsproject_ENABLE_CPPCHECK
+      afsproject_ENABLE_COVERAGE
+      afsproject_ENABLE_PCH
+      afsproject_ENABLE_CACHE)
   endif()
 
-  asfproject_check_libfuzzer_support(LIBFUZZER_SUPPORTED)
-  if(LIBFUZZER_SUPPORTED AND (asfproject_ENABLE_SANITIZER_ADDRESS OR asfproject_ENABLE_SANITIZER_THREAD OR asfproject_ENABLE_SANITIZER_UNDEFINED))
+  afsproject_check_libfuzzer_support(LIBFUZZER_SUPPORTED)
+  if(LIBFUZZER_SUPPORTED AND (afsproject_ENABLE_SANITIZER_ADDRESS OR afsproject_ENABLE_SANITIZER_THREAD OR afsproject_ENABLE_SANITIZER_UNDEFINED))
     set(DEFAULT_FUZZER ON)
   else()
     set(DEFAULT_FUZZER OFF)
   endif()
 
-  option(asfproject_BUILD_FUZZ_TESTS "Enable fuzz testing executable" ${DEFAULT_FUZZER})
+  option(afsproject_BUILD_FUZZ_TESTS "Enable fuzz testing executable" ${DEFAULT_FUZZER})
 
 endmacro()
 
-macro(asfproject_global_options)
-  if(asfproject_ENABLE_IPO)
+macro(afsproject_global_options)
+  if(afsproject_ENABLE_IPO)
     include(cmake/InterproceduralOptimization.cmake)
-    asfproject_enable_ipo()
+    afsproject_enable_ipo()
   endif()
 
-  asfproject_supports_sanitizers()
+  afsproject_supports_sanitizers()
 
-  if(asfproject_ENABLE_HARDENING AND asfproject_ENABLE_GLOBAL_HARDENING)
+  if(afsproject_ENABLE_HARDENING AND afsproject_ENABLE_GLOBAL_HARDENING)
     include(cmake/Hardening.cmake)
     if(NOT SUPPORTS_UBSAN 
-       OR asfproject_ENABLE_SANITIZER_UNDEFINED
-       OR asfproject_ENABLE_SANITIZER_ADDRESS
-       OR asfproject_ENABLE_SANITIZER_THREAD
-       OR asfproject_ENABLE_SANITIZER_LEAK)
+       OR afsproject_ENABLE_SANITIZER_UNDEFINED
+       OR afsproject_ENABLE_SANITIZER_ADDRESS
+       OR afsproject_ENABLE_SANITIZER_THREAD
+       OR afsproject_ENABLE_SANITIZER_LEAK)
       set(ENABLE_UBSAN_MINIMAL_RUNTIME FALSE)
     else()
       set(ENABLE_UBSAN_MINIMAL_RUNTIME TRUE)
     endif()
-    message("${asfproject_ENABLE_HARDENING} ${ENABLE_UBSAN_MINIMAL_RUNTIME} ${asfproject_ENABLE_SANITIZER_UNDEFINED}")
-    asfproject_enable_hardening(asfproject_options ON ${ENABLE_UBSAN_MINIMAL_RUNTIME})
+    message("${afsproject_ENABLE_HARDENING} ${ENABLE_UBSAN_MINIMAL_RUNTIME} ${afsproject_ENABLE_SANITIZER_UNDEFINED}")
+    afsproject_enable_hardening(afsproject_options ON ${ENABLE_UBSAN_MINIMAL_RUNTIME})
   endif()
 endmacro()
 
-macro(asfproject_local_options)
+macro(afsproject_local_options)
   if(PROJECT_IS_TOP_LEVEL)
     include(cmake/StandardProjectSettings.cmake)
   endif()
 
-  add_library(asfproject_warnings INTERFACE)
-  add_library(asfproject_options INTERFACE)
+  add_library(afsproject_warnings INTERFACE)
+  add_library(afsproject_options INTERFACE)
 
   include(cmake/CompilerWarnings.cmake)
-  asfproject_set_project_warnings(
-    asfproject_warnings
-    ${asfproject_WARNINGS_AS_ERRORS}
+  afsproject_set_project_warnings(
+    afsproject_warnings
+    ${afsproject_WARNINGS_AS_ERRORS}
     ""
     ""
     ""
     "")
 
-  if(asfproject_ENABLE_USER_LINKER)
+  if(afsproject_ENABLE_USER_LINKER)
     include(cmake/Linker.cmake)
-    asfproject_configure_linker(asfproject_options)
+    afsproject_configure_linker(afsproject_options)
   endif()
 
   include(cmake/Sanitizers.cmake)
-  asfproject_enable_sanitizers(
-    asfproject_options
-    ${asfproject_ENABLE_SANITIZER_ADDRESS}
-    ${asfproject_ENABLE_SANITIZER_LEAK}
-    ${asfproject_ENABLE_SANITIZER_UNDEFINED}
-    ${asfproject_ENABLE_SANITIZER_THREAD}
-    ${asfproject_ENABLE_SANITIZER_MEMORY})
+  afsproject_enable_sanitizers(
+    afsproject_options
+    ${afsproject_ENABLE_SANITIZER_ADDRESS}
+    ${afsproject_ENABLE_SANITIZER_LEAK}
+    ${afsproject_ENABLE_SANITIZER_UNDEFINED}
+    ${afsproject_ENABLE_SANITIZER_THREAD}
+    ${afsproject_ENABLE_SANITIZER_MEMORY})
 
-  set_target_properties(asfproject_options PROPERTIES UNITY_BUILD ${asfproject_ENABLE_UNITY_BUILD})
+  set_target_properties(afsproject_options PROPERTIES UNITY_BUILD ${afsproject_ENABLE_UNITY_BUILD})
 
-  if(asfproject_ENABLE_PCH)
+  if(afsproject_ENABLE_PCH)
     target_precompile_headers(
-      asfproject_options
+      afsproject_options
       INTERFACE
       <vector>
       <string>
       <utility>)
   endif()
 
-  if(asfproject_ENABLE_CACHE)
+  if(afsproject_ENABLE_CACHE)
     include(cmake/Cache.cmake)
-    asfproject_enable_cache()
+    afsproject_enable_cache()
   endif()
 
   include(cmake/StaticAnalyzers.cmake)
-  if(asfproject_ENABLE_CLANG_TIDY)
-    asfproject_enable_clang_tidy(asfproject_options ${asfproject_WARNINGS_AS_ERRORS})
+  if(afsproject_ENABLE_CLANG_TIDY)
+    afsproject_enable_clang_tidy(afsproject_options ${afsproject_WARNINGS_AS_ERRORS})
   endif()
 
-  if(asfproject_ENABLE_CPPCHECK)
-    asfproject_enable_cppcheck(${asfproject_WARNINGS_AS_ERRORS} "" # override cppcheck options
+  if(afsproject_ENABLE_CPPCHECK)
+    afsproject_enable_cppcheck(${afsproject_WARNINGS_AS_ERRORS} "" # override cppcheck options
     )
   endif()
 
-  if(asfproject_ENABLE_COVERAGE)
+  if(afsproject_ENABLE_COVERAGE)
     include(cmake/Tests.cmake)
-    asfproject_enable_coverage(asfproject_options)
+    afsproject_enable_coverage(afsproject_options)
   endif()
 
-  if(asfproject_WARNINGS_AS_ERRORS)
+  if(afsproject_WARNINGS_AS_ERRORS)
     check_cxx_compiler_flag("-Wl,--fatal-warnings" LINKER_FATAL_WARNINGS)
     if(LINKER_FATAL_WARNINGS)
       # This is not working consistently, so disabling for now
-      # target_link_options(asfproject_options INTERFACE -Wl,--fatal-warnings)
+      # target_link_options(afsproject_options INTERFACE -Wl,--fatal-warnings)
     endif()
   endif()
 
-  if(asfproject_ENABLE_HARDENING AND NOT asfproject_ENABLE_GLOBAL_HARDENING)
+  if(afsproject_ENABLE_HARDENING AND NOT afsproject_ENABLE_GLOBAL_HARDENING)
     include(cmake/Hardening.cmake)
     if(NOT SUPPORTS_UBSAN 
-       OR asfproject_ENABLE_SANITIZER_UNDEFINED
-       OR asfproject_ENABLE_SANITIZER_ADDRESS
-       OR asfproject_ENABLE_SANITIZER_THREAD
-       OR asfproject_ENABLE_SANITIZER_LEAK)
+       OR afsproject_ENABLE_SANITIZER_UNDEFINED
+       OR afsproject_ENABLE_SANITIZER_ADDRESS
+       OR afsproject_ENABLE_SANITIZER_THREAD
+       OR afsproject_ENABLE_SANITIZER_LEAK)
       set(ENABLE_UBSAN_MINIMAL_RUNTIME FALSE)
     else()
       set(ENABLE_UBSAN_MINIMAL_RUNTIME TRUE)
     endif()
-    asfproject_enable_hardening(asfproject_options OFF ${ENABLE_UBSAN_MINIMAL_RUNTIME})
+    afsproject_enable_hardening(afsproject_options OFF ${ENABLE_UBSAN_MINIMAL_RUNTIME})
   endif()
 
 endmacro()
