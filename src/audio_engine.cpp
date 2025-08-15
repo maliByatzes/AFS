@@ -1,3 +1,4 @@
+#include "asfproject/fft.h"
 #include "asfproject/spectrum.h"
 #include "asfproject/wave.h"
 #include <NumCpp/Functions/hamming.hpp>
@@ -117,7 +118,11 @@ void AudioEngine::applyHammingWindow(IAudioFile &audio_file)
 
 void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
 {
-  const std::vector<double> pcm_data = audio_file.getPCMData();
+  stereoToMono(audio_file);
+  applyLowPassFilter(audio_file);
+  downSampling(audio_file);
+
+  std::vector<double> pcm_data = audio_file.getPCMData();
 
   // 1. Define the Hamming window for all calculations
   const int sample_window = 1024;
@@ -130,8 +135,7 @@ void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
 
   // 2. Slide the window and perform calculations
   const int half_window = sample_window / 2;
-  // std::vector<std::vector<double>> result(half_window, std::vector<double>(half_window));
-
+  std::vector<std::vector<double>> result{};
 
   int end_of_last_win = 0;
   for (size_t x = 0; x < pcm_data.size(); x += half_window) {// NOLINT
@@ -142,34 +146,30 @@ void AudioEngine::shortTimeFourierTransform(IAudioFile &audio_file)
   }
 
   const int num_of_zeros = end_of_last_win - (int(pcm_data.size()) - 1);
-  std::cout << end_of_last_win << "\n";
-  std::cout << num_of_zeros << "\n";
 
-  /*
+  std::vector<double> zeros_arr(static_cast<size_t>(num_of_zeros));
+  pcm_data.append_range(zeros_arr);// IDK if this will work
+
   for (size_t i = 0; i < pcm_data.size(); i += half_window) {
-    std::vector<double> data_block(sample_window);
-    if (i + half_window > pcm_data.size()) {
-      const std::vector<double> temp(pcm_data.begin() + int(i), pcm_data.end());
-      data_block = temp;
-    } else {
-      const std::vector<double> temp(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + sample_window);
-      data_block = temp;
-    }
+    const std::vector<double> data_block(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + sample_window);
     std::vector<double> res(sample_window);
 
-    for (size_t j = 0; j < window.size(); ++j) { res.push_back(data_block[j] * window[j]); }
+    for (size_t j = 0; j < window.size(); ++j) { res[j] = data_block[j] * window[j]; }
 
     result.push_back(res);
   }
 
-
-  std::cout << "[ ";
-  for (const auto &res : result) {
-    std::cout << "[ ";
-    for (const double vvv : res) { std::cout << vvv << ", "; }
-    std::cout << "], ";
-  }
-  std::cout << "]\n";*/
+  // Apply FFT on vectors inside the result vector
+  std::vector<std::vector<double>> matrix{};
+  
+  for (auto &ys : result) {
+    const VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys);
+    std::vector<double> magnitudes{};
+    std::ranges::for_each(hs_vec, [&](auto &value) {
+      magnitudes.push_back(std::abs(value));
+    });
+    matrix.push_back(magnitudes);
+  }   
 }
 
 void AudioEngine::processServerSide(IAudioFile &audio_file)
