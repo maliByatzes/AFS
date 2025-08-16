@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
-// #include <vector>
 
 using namespace afs;
 
@@ -20,6 +19,8 @@ int main()
 
   AFS afs;
   afs.shortTimeFourierTransform(*wave_audio);
+
+  afs.filtering();
     
   return 0;
 }

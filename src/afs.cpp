@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <vector>
 
 namespace afs {
@@ -136,6 +137,31 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
 
   // set matrix to m_matrix
   m_matrix = matrix;
+}
+
+void AFS::filtering()
+{
+  // std::vector<std::vector<double>> filtered_matrix;
+
+  for (auto &bins : m_matrix) {
+    // 1. Divide the bins int logarithmic bands
+    // NOLINTBEGIN
+    std::vector<double> very_low_sound_bins(bins.begin(), bins.begin() + 10);
+    std::cout << very_low_sound_bins.size() << "\n";
+    std::vector<double> low_sound_bins(bins.begin() + 10, bins.begin() + 20);
+    std::cout << low_sound_bins.size() << "\n";
+    std::vector<double> low_mid_sound_bins(bins.begin() + 20, bins.begin() + 40);
+    std::cout << low_mid_sound_bins.size() << "\n";
+    std::vector<double> mid_sound_bins(bins.begin() + 40, bins.begin() + 80);
+    std::cout << mid_sound_bins.size() << "\n";
+    std::vector<double> mid_high_sound_bins(bins.begin() + 80, bins.begin() + 160);
+    std::cout << mid_high_sound_bins.size() << "\n";
+    std::vector<double> high_sound_bins(bins.begin() + 160, bins.begin() + 513);
+    std::cout << high_sound_bins.size() << "\n";
+    // NOLINTEND
+
+    break;
+  }
 }
 
 }// namespace afs

@@ -15,11 +15,12 @@ private:
   static void stereoToMono(IAudioFile &);
   static void applyLowPassFilter(IAudioFile &);
   static void downSampling(IAudioFile &);
+
 public:
   AFS() = default;
-  ~AFS() = default;
-  
+
   void shortTimeFourierTransform(IAudioFile &);
+  void filtering();
 };
 
 }// namespace afs
