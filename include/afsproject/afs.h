@@ -2,6 +2,7 @@
 #define afs_h_
 
 #include <afsproject/audio_file.h>
+#include <map>
 #include <vector>
 
 namespace afs {
@@ -9,7 +10,7 @@ namespace afs {
 class AFS// NOLINT
 {
 private:
-  std::vector<std::vector<double>> m_matrix;
+  std::vector<std::vector<std::pair<int, double>>> m_matrix;
 
   static void normalizePCMData(IAudioFile &);
   static void stereoToMono(IAudioFile &);
@@ -20,7 +21,8 @@ public:
   AFS() = default;
 
   void shortTimeFourierTransform(IAudioFile &);
-  std::vector<std::vector<double>> filtering();
+  std::vector<std::vector<std::pair<int, double>>> filtering();
+  void generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &);
 };
 
 }// namespace afs

@@ -7,8 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iostream>
-#include <numeric>
+#include <matplot/freestanding/plot.h>
+#include <utility>
 #include <vector>
 
 namespace afs {
@@ -127,12 +127,12 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
   }
 
   // 3. Apply FFT on vectors inside the result vector
-  std::vector<std::vector<double>> matrix{};
+  std::vector<std::vector<std::pair<int, double>>> matrix{};
 
   for (const auto &ys : result) {
     const VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys);
-    std::vector<double> magnitudes{};
-    std::ranges::for_each(hs_vec, [&](const auto &value) { magnitudes.push_back(std::abs(value)); });
+    std::vector<std::pair<int, double>> magnitudes(hs_vec.size());
+    for (size_t i = 0; i < hs_vec.size(); ++i) { magnitudes[i] = std::make_pair(int(i), std::abs(hs_vec[i])); }
     matrix.push_back(magnitudes);
   }
 
@@ -140,47 +140,72 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
   m_matrix = matrix;
 }
 
-std::vector<std::vector<double>> AFS::filtering()
+std::vector<std::vector<std::pair<int, double>>> AFS::filtering()
 {
-  std::vector<std::vector<double>> filtered_matrix;
+  std::vector<std::vector<std::pair<int, double>>> filtered_matrix;
 
   for (auto &bins : m_matrix) {
     // 1. Divide the bins int logarithmic bands
     // NOLINTBEGIN
-    std::vector<double> very_low_sound_bins(bins.begin(), bins.begin() + 10);
-    std::vector<double> low_sound_bins(bins.begin() + 10, bins.begin() + 20);
-    std::vector<double> low_mid_sound_bins(bins.begin() + 20, bins.begin() + 40);
-    std::vector<double> mid_sound_bins(bins.begin() + 40, bins.begin() + 80);
-    std::vector<double> mid_high_sound_bins(bins.begin() + 80, bins.begin() + 160);
-    std::vector<double> high_sound_bins(bins.begin() + 160, bins.begin() + 513);
+    std::vector<std::pair<int, double>> very_low_sound_bins(bins.begin(), bins.begin() + 10);
+    std::vector<std::pair<int, double>> low_sound_bins(bins.begin() + 10, bins.begin() + 20);
+    std::vector<std::pair<int, double>> low_mid_sound_bins(bins.begin() + 20, bins.begin() + 40);
+    std::vector<std::pair<int, double>> mid_sound_bins(bins.begin() + 40, bins.begin() + 80);
+    std::vector<std::pair<int, double>> mid_high_sound_bins(bins.begin() + 80, bins.begin() + 160);
+    std::vector<std::pair<int, double>> high_sound_bins(bins.begin() + 160, bins.begin() + 513);
     // NOLINTEND
 
     // 2. Keep the strongest bin in each band
-    std::vector<double> strongest_bins;
-    strongest_bins.push_back(*std::ranges::max_element(very_low_sound_bins));
-    strongest_bins.push_back(*std::ranges::max_element(low_sound_bins));
-    strongest_bins.push_back(*std::ranges::max_element(low_mid_sound_bins));
-    strongest_bins.push_back(*std::ranges::max_element(mid_sound_bins));
-    strongest_bins.push_back(*std::ranges::max_element(mid_high_sound_bins));
-    strongest_bins.push_back(*std::ranges::max_element(high_sound_bins));
+    std::vector<std::pair<int, double>> strongest_bins;
+    auto cmp_fn = [](const std::pair<int, double> &a, const std::pair<int, double> &b) {// NOLINT
+      return a.second < b.second; 
+    };
+    strongest_bins.push_back(*std::ranges::max_element(very_low_sound_bins,cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(low_sound_bins, cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(low_mid_sound_bins, cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(mid_sound_bins, cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(mid_high_sound_bins, cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(high_sound_bins, cmp_fn));
 
     // 3. Compute the average of these 6 powerful bins
-    const double sum = std::accumulate(strongest_bins.begin(), strongest_bins.end(), 0.0);// NOLINT
+    double sum = 0.0;
+    for (const auto &bin : strongest_bins) { sum += bin.second; }
     const double average = sum / 6;// NOLINT
 
     // 4. Keep the bins that are above the mean
     const double coeff = 1.2;
     const double threshold = average * coeff;
-    std::vector<double> filtered_strongest_bins;
+    std::vector<std::pair<int, double>> filtered_strongest_bins;
 
-    for (const double val : strongest_bins) {
-      if (val > threshold) { filtered_strongest_bins.push_back(val); }
+    for (const auto &val : strongest_bins) {
+      if (val.second > threshold) { filtered_strongest_bins.push_back(val); }
     }
 
     filtered_matrix.push_back(filtered_strongest_bins);
   }
 
   return filtered_matrix;
+}
+
+void AFS::generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &matrix)// NOLINT
+{
+  // plottterr
+
+  const double time_step = 0.046;
+  const double bin_val = 10.77;
+  std::vector<double> time;
+  std::vector<double> freqs;
+
+  for (size_t i = 0; i < matrix.size(); ++i) {
+    time.push_back(static_cast<double>(i) * time_step);// NOLINT
+
+    std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
+      freqs.push_back(bin.first * bin_val);
+    });
+  }
+
+  matplot::plot(time, freqs, "x");
+  matplot::show();
 }
 
 }// namespace afs

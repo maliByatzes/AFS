@@ -1,4 +1,4 @@
-#include "afsproject/afs.h"
+#include <afsproject/afs.h>
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
 #include <cstdlib>
@@ -21,6 +21,7 @@ int main()
   afs.shortTimeFourierTransform(*wave_audio);
 
   auto filtered_matrix = afs.filtering();
-    
+  afs.generateTargetZones(filtered_matrix);
+
   return 0;
 }
