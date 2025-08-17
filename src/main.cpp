@@ -20,7 +20,7 @@ int main()
   AFS afs;
   afs.shortTimeFourierTransform(*wave_audio);
 
-  afs.filtering();
+  auto filtered_matrix = afs.filtering();
     
   return 0;
 }

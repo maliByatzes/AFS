@@ -20,7 +20,7 @@ public:
   AFS() = default;
 
   void shortTimeFourierTransform(IAudioFile &);
-  void filtering();
+  std::vector<std::vector<double>> filtering();
 };
 
 }// namespace afs

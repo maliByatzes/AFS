@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 namespace afs {
@@ -74,7 +75,7 @@ void AFS::downSampling(IAudioFile &audio_file)
 
   if (audio_file.getSampleRate() == 44100) {// NOLINT
     std::vector<double> pcm_data = audio_file.getPCMData();
-    std::vector<double> new_pcm_data(pcm_data.size() / 4);
+    std::vector<double> new_pcm_data;
 
     for (size_t i = 0; i < pcm_data.size(); i += 4) { new_pcm_data.push_back(pcm_data[i]); }
 
@@ -139,29 +140,47 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
   m_matrix = matrix;
 }
 
-void AFS::filtering()
+std::vector<std::vector<double>> AFS::filtering()
 {
-  // std::vector<std::vector<double>> filtered_matrix;
+  std::vector<std::vector<double>> filtered_matrix;
 
   for (auto &bins : m_matrix) {
     // 1. Divide the bins int logarithmic bands
     // NOLINTBEGIN
     std::vector<double> very_low_sound_bins(bins.begin(), bins.begin() + 10);
-    std::cout << very_low_sound_bins.size() << "\n";
     std::vector<double> low_sound_bins(bins.begin() + 10, bins.begin() + 20);
-    std::cout << low_sound_bins.size() << "\n";
     std::vector<double> low_mid_sound_bins(bins.begin() + 20, bins.begin() + 40);
-    std::cout << low_mid_sound_bins.size() << "\n";
     std::vector<double> mid_sound_bins(bins.begin() + 40, bins.begin() + 80);
-    std::cout << mid_sound_bins.size() << "\n";
     std::vector<double> mid_high_sound_bins(bins.begin() + 80, bins.begin() + 160);
-    std::cout << mid_high_sound_bins.size() << "\n";
     std::vector<double> high_sound_bins(bins.begin() + 160, bins.begin() + 513);
-    std::cout << high_sound_bins.size() << "\n";
     // NOLINTEND
 
-    break;
+    // 2. Keep the strongest bin in each band
+    std::vector<double> strongest_bins;
+    strongest_bins.push_back(*std::ranges::max_element(very_low_sound_bins));
+    strongest_bins.push_back(*std::ranges::max_element(low_sound_bins));
+    strongest_bins.push_back(*std::ranges::max_element(low_mid_sound_bins));
+    strongest_bins.push_back(*std::ranges::max_element(mid_sound_bins));
+    strongest_bins.push_back(*std::ranges::max_element(mid_high_sound_bins));
+    strongest_bins.push_back(*std::ranges::max_element(high_sound_bins));
+
+    // 3. Compute the average of these 6 powerful bins
+    const double sum = std::accumulate(strongest_bins.begin(), strongest_bins.end(), 0.0);// NOLINT
+    const double average = sum / 6;// NOLINT
+
+    // 4. Keep the bins that are above the mean
+    const double coeff = 1.2;
+    const double threshold = average * coeff;
+    std::vector<double> filtered_strongest_bins;
+
+    for (const double val : strongest_bins) {
+      if (val > threshold) { filtered_strongest_bins.push_back(val); }
+    }
+
+    filtered_matrix.push_back(filtered_strongest_bins);
   }
+
+  return filtered_matrix;
 }
 
 }// namespace afs
