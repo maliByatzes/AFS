@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <matplot/freestanding/plot.h>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -189,23 +189,25 @@ std::vector<std::vector<std::pair<int, double>>> AFS::filtering()
 
 void AFS::generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &matrix)// NOLINT
 {
-  // plottterr
-
+  std::map<double, std::vector<double>> grouped_freqs;
+  
   const double time_step = 0.046;
   const double bin_val = 10.77;
-  std::vector<double> time;
-  std::vector<double> freqs;
 
   for (size_t i = 0; i < matrix.size(); ++i) {
-    time.push_back(static_cast<double>(i) * time_step);// NOLINT
+    double current_time = static_cast<double>(i) * time_step;
 
     std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
-      freqs.push_back(bin.first * bin_val);
+      const double current_freq = static_cast<double>(bin.first) * bin_val;
+
+      if (grouped_freqs.contains(current_time)) {
+        grouped_freqs[current_time].push_back(current_freq);
+      } else {
+        std::vector<double> tmp = {current_freq};
+        grouped_freqs.emplace(current_time, std::move(tmp));
+      }
     });
   }
-
-  matplot::plot(time, freqs, "x");
-  matplot::show();
 }
 
 }// namespace afs
