@@ -7,8 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <tuple>
 #include <iostream>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -191,24 +191,38 @@ void AFS::filtering(Matrix &matrix)
 void AFS::generateTargetZones(Matrix &matrix)
 {
   // tuple -> index, time, freq
-  std::vector<std::tuple<int, double, double>> zones;
+  std::vector<std::tuple<int, double, double>> points;
 
   const double time_step = 0.046;
   const double bin_val = 10.77;
 
+  int index = 0;
   for (size_t i = 0; i < matrix.size(); ++i) {
     double current_time = static_cast<double>(i) * time_step;
     std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
       const double current_freq = static_cast<double>(bin.first) * bin_val;
-      zones.emplace_back(0, current_time, current_freq);
+      points.emplace_back(index, current_time, current_freq);
+      index++;
     });
   }
 
-  std::cout << "[\n";
-  for (const auto &zone : zones) {
-    std::cout << "(" << std::get<0>(zone) << ", " << std::get<1>(zone) << ", " << std::get<2>(zone) << "),\n";
+  // Address generation
+  std::vector<std::tuple<double, double, double>> addresses;
+
+  for (size_t idx = 0; idx < points.size(); ++idx) {
+    if (idx + 3 >= points.size()) { break; }
+    if (idx + 3 + 4 >= points.size()) { break; }
+
+    auto anchor_point = points[idx];
+    const size_t starting_freq_idx = idx + 3;
+    const std::vector<std::tuple<int, double, double>> target_zone(
+      points.begin() + int(starting_freq_idx), points.begin() + int(starting_freq_idx) + 5);// NOLINT
+
+    for (const auto &point : target_zone) {
+      addresses.emplace_back(
+        std::get<2>(anchor_point), std::get<2>(point), std::get<1>(point) - std::get<1>(anchor_point));
+    }
   }
-  std::cout << "]\n\n";
 }
 
 }// namespace afs
