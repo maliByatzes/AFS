@@ -17,11 +17,7 @@ int main()
     return EXIT_FAILURE;
   }
 
-  AFS afs;
-  afs.shortTimeFourierTransform(*wave_audio);
-
-  auto filtered_matrix = afs.filtering();
-  afs.generateTargetZones(filtered_matrix);
+  AFS::storingFingerprints(*wave_audio);
 
   return 0;
 }

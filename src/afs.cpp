@@ -83,7 +83,13 @@ void AFS::downSampling(IAudioFile &audio_file)
   }
 }
 
-void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
+void AFS::storingFingerprints(IAudioFile &audio_file)
+{
+  Matrix matrix { shortTimeFourierTransform(audio_file) };
+  filtering(matrix);
+}
+
+Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
 {
   stereoToMono(audio_file);
   applyLowPassFilter(audio_file);
@@ -100,9 +106,8 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
     window[i] = ans;
   }
 
-  // 2. Slide the window and perform calculations
+  // 2. Slide the window and perform calculations, apply FFT on each data block
   const int half_window = sample_window / 2;
-  std::vector<std::vector<double>> result{};
 
   int end_of_last_win = 0;
   for (size_t x = 0; x < pcm_data.size(); x += half_window) {// NOLINT
@@ -115,36 +120,28 @@ void AFS::shortTimeFourierTransform(IAudioFile &audio_file)
   const int num_of_zeros = end_of_last_win - (int(pcm_data.size()) - 1);
 
   std::vector<double> zeros_arr(static_cast<size_t>(num_of_zeros));
-  pcm_data.append_range(zeros_arr);// IDK if this will work
+  pcm_data.append_range(zeros_arr);
+
+  Matrix matrix{};
 
   for (size_t i = 0; i < pcm_data.size(); i += half_window) {
     const std::vector<double> data_block(pcm_data.begin() + int(i), pcm_data.begin() + int(i) + sample_window);
-    std::vector<double> res(sample_window);
+    std::vector<double> ys(sample_window);
 
-    for (size_t j = 0; j < window.size(); ++j) { res[j] = data_block[j] * window[j]; }
+    for (size_t j = 0; j < window.size(); ++j) { ys[j] = data_block[j] * window[j]; }
 
-    result.push_back(res);
-  }
-
-  // 3. Apply FFT on vectors inside the result vector
-  std::vector<std::vector<std::pair<int, double>>> matrix{};
-
-  for (const auto &ys : result) {
     const VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys);
     std::vector<std::pair<int, double>> magnitudes(hs_vec.size());
-    for (size_t i = 0; i < hs_vec.size(); ++i) { magnitudes[i] = std::make_pair(int(i), std::abs(hs_vec[i])); }
+    for (size_t j = 0; j < hs_vec.size(); ++j) { magnitudes[i] = std::make_pair(int(j), std::abs(hs_vec[j])); }
     matrix.push_back(magnitudes);
   }
 
-  // set matrix to m_matrix
-  m_matrix = matrix;
+  return matrix;
 }
 
-std::vector<std::vector<std::pair<int, double>>> AFS::filtering()
+void AFS::filtering(Matrix &matrix)
 {
-  std::vector<std::vector<std::pair<int, double>>> filtered_matrix;
-
-  for (auto &bins : m_matrix) {
+  for (auto &bins : matrix) {
     // 1. Divide the bins int logarithmic bands
     // NOLINTBEGIN
     std::vector<std::pair<int, double>> very_low_sound_bins(bins.begin(), bins.begin() + 10);
@@ -158,9 +155,9 @@ std::vector<std::vector<std::pair<int, double>>> AFS::filtering()
     // 2. Keep the strongest bin in each band
     std::vector<std::pair<int, double>> strongest_bins;
     auto cmp_fn = [](const std::pair<int, double> &a, const std::pair<int, double> &b) {// NOLINT
-      return a.second < b.second; 
+      return a.second < b.second;
     };
-    strongest_bins.push_back(*std::ranges::max_element(very_low_sound_bins,cmp_fn));
+    strongest_bins.push_back(*std::ranges::max_element(very_low_sound_bins, cmp_fn));
     strongest_bins.push_back(*std::ranges::max_element(low_sound_bins, cmp_fn));
     strongest_bins.push_back(*std::ranges::max_element(low_mid_sound_bins, cmp_fn));
     strongest_bins.push_back(*std::ranges::max_element(mid_sound_bins, cmp_fn));
@@ -181,16 +178,15 @@ std::vector<std::vector<std::pair<int, double>>> AFS::filtering()
       if (val.second > threshold) { filtered_strongest_bins.push_back(val); }
     }
 
-    filtered_matrix.push_back(filtered_strongest_bins);
+    matrix.clear();
+    matrix.push_back(filtered_strongest_bins);
   }
-
-  return filtered_matrix;
 }
 
-void AFS::generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &matrix)// NOLINT
+void AFS::generateTargetZones(Matrix &matrix)// NOLINT
 {
   std::map<double, std::vector<double>> grouped_freqs;
-  
+
   const double time_step = 0.046;
   const double bin_val = 10.77;
 
@@ -203,7 +199,7 @@ void AFS::generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &
       if (grouped_freqs.contains(current_time)) {
         grouped_freqs[current_time].push_back(current_freq);
       } else {
-        std::vector<double> tmp = {current_freq};
+        std::vector<double> tmp = { current_freq };
         grouped_freqs.emplace(current_time, std::move(tmp));
       }
     });

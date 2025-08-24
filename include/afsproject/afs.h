@@ -2,27 +2,27 @@
 #define afs_h_
 
 #include <afsproject/audio_file.h>
-#include <map>
 #include <vector>
 
 namespace afs {
 
+using Matrix = std::vector<std::vector<std::pair<int, double>>>;
+
 class AFS// NOLINT
 {
 private:
-  std::vector<std::vector<std::pair<int, double>>> m_matrix;
-
   static void normalizePCMData(IAudioFile &);
   static void stereoToMono(IAudioFile &);
   static void applyLowPassFilter(IAudioFile &);
   static void downSampling(IAudioFile &);
+  static Matrix shortTimeFourierTransform(IAudioFile &);
+  static void filtering(Matrix &);
+  static void generateTargetZones(Matrix &);
 
 public:
   AFS() = default;
 
-  void shortTimeFourierTransform(IAudioFile &);
-  std::vector<std::vector<std::pair<int, double>>> filtering();
-  void generateTargetZones(std::vector<std::vector<std::pair<int, double>>> &);
+  static void storingFingerprints(IAudioFile &);
 };
 
 }// namespace afs
