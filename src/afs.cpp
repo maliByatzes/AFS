@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <map>
+#include <tuple>
+#include <iostream>
 #include <utility>
 #include <vector>
 
@@ -87,6 +88,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file)
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
+  generateTargetZones(matrix);
 }
 
 Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
@@ -142,7 +144,7 @@ Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
 void AFS::filtering(Matrix &matrix)
 {
   Matrix filtered_matrix;
-  
+
   for (auto &bins : matrix) {
     // 1. Divide the bins int logarithmic bands
     // NOLINTBEGIN
@@ -186,27 +188,27 @@ void AFS::filtering(Matrix &matrix)
   matrix.swap(filtered_matrix);
 }
 
-void AFS::generateTargetZones(Matrix &matrix)// NOLINT
+void AFS::generateTargetZones(Matrix &matrix)
 {
-  std::map<double, std::vector<double>> grouped_freqs;
+  // tuple -> index, time, freq
+  std::vector<std::tuple<int, double, double>> zones;
 
   const double time_step = 0.046;
   const double bin_val = 10.77;
 
   for (size_t i = 0; i < matrix.size(); ++i) {
     double current_time = static_cast<double>(i) * time_step;
-
     std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
       const double current_freq = static_cast<double>(bin.first) * bin_val;
-
-      if (grouped_freqs.contains(current_time)) {
-        grouped_freqs[current_time].push_back(current_freq);
-      } else {
-        std::vector<double> tmp = { current_freq };
-        grouped_freqs.emplace(current_time, std::move(tmp));
-      }
+      zones.emplace_back(0, current_time, current_freq);
     });
   }
+
+  std::cout << "[\n";
+  for (const auto &zone : zones) {
+    std::cout << "(" << std::get<0>(zone) << ", " << std::get<1>(zone) << ", " << std::get<2>(zone) << "),\n";
+  }
+  std::cout << "]\n\n";
 }
 
 }// namespace afs
