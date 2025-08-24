@@ -141,6 +141,8 @@ Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
 
 void AFS::filtering(Matrix &matrix)
 {
+  Matrix filtered_matrix;
+  
   for (auto &bins : matrix) {
     // 1. Divide the bins int logarithmic bands
     // NOLINTBEGIN
@@ -178,9 +180,10 @@ void AFS::filtering(Matrix &matrix)
       if (val.second > threshold) { filtered_strongest_bins.push_back(val); }
     }
 
-    matrix.clear();
-    matrix.push_back(filtered_strongest_bins);
+    filtered_matrix.push_back(filtered_strongest_bins);
   }
+
+  matrix.swap(filtered_matrix);
 }
 
 void AFS::generateTargetZones(Matrix &matrix)// NOLINT
