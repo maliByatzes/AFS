@@ -85,7 +85,7 @@ void AFS::downSampling(IAudioFile &audio_file)
 
 void AFS::storingFingerprints(IAudioFile &audio_file)
 {
-  Matrix matrix { shortTimeFourierTransform(audio_file) };
+  Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
 }
 
@@ -132,7 +132,7 @@ Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
 
     const VecComplexDoub hs_vec = FFT::convertToFrequencyDomain(ys);
     std::vector<std::pair<int, double>> magnitudes(hs_vec.size());
-    for (size_t j = 0; j < hs_vec.size(); ++j) { magnitudes[i] = std::make_pair(int(j), std::abs(hs_vec[j])); }
+    for (size_t x = 0; x < hs_vec.size(); ++x) { magnitudes[x] = std::make_pair(int(x), std::abs(hs_vec[x])); }// NOLINT
     matrix.push_back(magnitudes);
   }
 
