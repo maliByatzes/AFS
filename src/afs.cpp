@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <tuple>
 #include <utility>
@@ -223,6 +224,17 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
         delta_time,
         std::get<1>(anchor_point),// NOLINT
         1);
+
+      // Packing into one value
+      uint16_t freq_anchor = std::get<2>(anchor_point) & NINE_BITS_MASK;// NOLINT
+      uint16_t freq_point = std::get<2>(point) & NINE_BITS_MASK;// NOLINT
+      uint16_t delta_bits = delta_time & FOURTEEN_BITS_MASK;// NOLINT
+
+      uint32_t address = 0;
+      address |= freq_anchor;
+      address |= (static_cast<uint32_t>(freq_point) << 9);// NOLINT
+      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT
+      std::cout << "address: " << address << "\n";
     }
   }
 

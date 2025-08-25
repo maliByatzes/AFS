@@ -2,6 +2,7 @@
 #define afs_h_
 
 #include <afsproject/audio_file.h>
+#include <cstdint>
 #include <vector>
 
 namespace afs {
@@ -11,6 +12,9 @@ using Fingerprint = std::vector<std::tuple<int, int, int, int, int>>;
 
 const double TIME_STEP = 0.046;
 const double BIN_SIZE = 10.7;
+
+const uint16_t NINE_BITS_MASK = 0x1FF;
+const uint16_t FOURTEEN_BITS_MASK = 0x3FFF;
 
 class AFS// NOLINT
 {
