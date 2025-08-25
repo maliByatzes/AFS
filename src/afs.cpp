@@ -207,7 +207,8 @@ void AFS::generateTargetZones(Matrix &matrix)
   }
 
   // Address generation
-  std::vector<std::tuple<double, double, double>> addresses;
+  std::vector<std::tuple<double, double, int>> addresses;
+  std::vector<std::pair<int, int>> couples;
 
   for (size_t idx = 0; idx < points.size(); ++idx) {
     if (idx + 3 >= points.size()) { break; }
@@ -219,8 +220,10 @@ void AFS::generateTargetZones(Matrix &matrix)
       points.begin() + int(starting_freq_idx), points.begin() + int(starting_freq_idx) + 5);// NOLINT
 
     for (const auto &point : target_zone) {
-      addresses.emplace_back(
-        std::get<2>(anchor_point), std::get<2>(point), std::get<1>(point) - std::get<1>(anchor_point));
+      auto delta_time = static_cast<int>((std::get<1>(point) - std::get<1>(anchor_point)) * 1000);// NOLINT
+
+      addresses.emplace_back(std::get<2>(anchor_point), std::get<2>(point), delta_time);
+      couples.emplace_back(static_cast<int>(std::get<1>(anchor_point) * 1000), 1);// NOLINT
     }
   }
 }
