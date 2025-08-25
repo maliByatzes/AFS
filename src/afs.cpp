@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -87,7 +88,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file)
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
-  Fingerprint fingerprints{ generateFingerprints(matrix) };
+  const Fingerprint fingerprints{ generateFingerprints(matrix) };
 }
 
 Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
@@ -189,18 +190,14 @@ void AFS::filtering(Matrix &matrix)
 
 Fingerprint AFS::generateFingerprints(Matrix &matrix)
 {
-  // tuple -> index, time, freq
-  std::vector<std::tuple<int, double, double>> points;
-
-  const double time_step = 0.046;
-  const double bin_val = 10.77;
+  // tuple -> index, time, bin
+  std::vector<std::tuple<int, int, int>> points;
 
   int index = 0;
   for (size_t i = 0; i < matrix.size(); ++i) {
-    double current_time = static_cast<double>(i) * time_step;
+    int current_time = static_cast<int>(double(i) * TIME_STEP * 1000);// NOLINT
     std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
-      const double current_freq = static_cast<double>(bin.first) * bin_val;
-      points.emplace_back(index, current_time, current_freq);
+      points.emplace_back(index, current_time, bin.first);
       index++;
     });
   }
@@ -214,20 +211,28 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
 
     auto anchor_point = points[idx];
     const size_t starting_freq_idx = idx + 3;
-    const std::vector<std::tuple<int, double, double>> target_zone(
+    const std::vector<std::tuple<int, int, int>> target_zone(
       points.begin() + int(starting_freq_idx), points.begin() + int(starting_freq_idx) + 5);// NOLINT
 
     for (const auto &point : target_zone) {
-      auto delta_time = static_cast<int>((std::get<1>(point) - std::get<1>(anchor_point)) * 1000);// NOLINT
+      int delta_time = std::get<1>(point) - std::get<1>(anchor_point);// NOLINT
 
       // TODO: Change the song id to an actual song id
       fingerprints.emplace_back(std::get<2>(anchor_point),
         std::get<2>(point),
         delta_time,
-        static_cast<int>(std::get<1>(anchor_point) * 1000),// NOLINT
+        std::get<1>(anchor_point),// NOLINT
         1);
     }
   }
+
+  /*
+  std::cout << "[\n";
+  for (const auto &[anc_freq, point_freq, delta_time, abs_time, song_id] : fingerprints) {
+    std::cout << "[" << anc_freq << ";" << point_freq << ";" << delta_time << "] -> [" << abs_time << ";" << song_id
+              << "]\n";
+  }
+  std::cout << "]\n";*/
 
   return fingerprints;
 }

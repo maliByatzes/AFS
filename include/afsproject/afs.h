@@ -7,7 +7,10 @@
 namespace afs {
 
 using Matrix = std::vector<std::vector<std::pair<int, double>>>;
-using Fingerprint = std::vector<std::tuple<double, double, int, int, int>>;
+using Fingerprint = std::vector<std::tuple<int, int, int, int, int>>;
+
+const double TIME_STEP = 0.046;
+const double BIN_SIZE = 10.7;
 
 class AFS// NOLINT
 {
