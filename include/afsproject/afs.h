@@ -7,6 +7,7 @@
 namespace afs {
 
 using Matrix = std::vector<std::vector<std::pair<int, double>>>;
+using Fingerprint = std::vector<std::tuple<double, double, int, int, int>>;
 
 class AFS// NOLINT
 {
@@ -17,7 +18,7 @@ private:
   static void downSampling(IAudioFile &);
   static Matrix shortTimeFourierTransform(IAudioFile &);
   static void filtering(Matrix &);
-  static void generateTargetZones(Matrix &);
+  static Fingerprint generateFingerprints(Matrix &);
 
 public:
   AFS() = default;

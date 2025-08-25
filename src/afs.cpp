@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iostream>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -88,7 +87,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file)
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
-  generateTargetZones(matrix);
+  Fingerprint fingerprints{ generateFingerprints(matrix) };
 }
 
 Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
@@ -188,7 +187,7 @@ void AFS::filtering(Matrix &matrix)
   matrix.swap(filtered_matrix);
 }
 
-void AFS::generateTargetZones(Matrix &matrix)
+Fingerprint AFS::generateFingerprints(Matrix &matrix)
 {
   // tuple -> index, time, freq
   std::vector<std::tuple<int, double, double>> points;
@@ -206,9 +205,8 @@ void AFS::generateTargetZones(Matrix &matrix)
     });
   }
 
-  // Address generation
-  std::vector<std::tuple<double, double, int>> addresses;
-  std::vector<std::pair<int, int>> couples;
+  // Fingerprint database blueprint
+  Fingerprint fingerprints;
 
   for (size_t idx = 0; idx < points.size(); ++idx) {
     if (idx + 3 >= points.size()) { break; }
@@ -222,10 +220,16 @@ void AFS::generateTargetZones(Matrix &matrix)
     for (const auto &point : target_zone) {
       auto delta_time = static_cast<int>((std::get<1>(point) - std::get<1>(anchor_point)) * 1000);// NOLINT
 
-      addresses.emplace_back(std::get<2>(anchor_point), std::get<2>(point), delta_time);
-      couples.emplace_back(static_cast<int>(std::get<1>(anchor_point) * 1000), 1);// NOLINT
+      // TODO: Change the song id to an actual song id
+      fingerprints.emplace_back(std::get<2>(anchor_point),
+        std::get<2>(point),
+        delta_time,
+        static_cast<int>(std::get<1>(anchor_point) * 1000),// NOLINT
+        1);
     }
   }
+
+  return fingerprints;
 }
 
 }// namespace afs
