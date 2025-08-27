@@ -8,8 +8,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -205,6 +205,7 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
 
   // Fingerprint database blueprint
   Fingerprint fingerprints;
+  std::unordered_map<uint32_t, std::vector<uint64_t>> fgps;
 
   for (size_t idx = 0; idx < points.size(); ++idx) {
     if (idx + 3 >= points.size()) { break; }
@@ -233,18 +234,23 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
       uint32_t address = 0;
       address |= freq_anchor;
       address |= (static_cast<uint32_t>(freq_point) << 9);// NOLINT
-      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT
-      std::cout << "address: " << address << "\n";
+      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT      
+
+      uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;// NOLINT
+      // TODO: Change this >.<
+      uint32_t song_id = 1 & THIRTY_TWO_BITS_MASK;// NOLINT
+
+      [[maybe_unused]] uint64_t couple = 0;
+      couple |= time_of_anchor;
+      couple |= (static_cast<uint64_t>(song_id) << 32);// NOLINT
+
+      if (fgps.contains(address)) {
+        fgps[address].push_back(couple);
+      } else {
+        // Bleh...
+      }
     }
   }
-
-  /*
-  std::cout << "[\n";
-  for (const auto &[anc_freq, point_freq, delta_time, abs_time, song_id] : fingerprints) {
-    std::cout << "[" << anc_freq << ";" << point_freq << ";" << delta_time << "] -> [" << abs_time << ";" << song_id
-              << "]\n";
-  }
-  std::cout << "]\n";*/
 
   return fingerprints;
 }

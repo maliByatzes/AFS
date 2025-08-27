@@ -15,6 +15,7 @@ const double BIN_SIZE = 10.7;
 
 const uint16_t NINE_BITS_MASK = 0x1FF;
 const uint16_t FOURTEEN_BITS_MASK = 0x3FFF;
+const uint32_t THIRTY_TWO_BITS_MASK = 0xFFFFFFFF;
 
 class AFS// NOLINT
 {
