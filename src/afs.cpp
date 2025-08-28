@@ -204,8 +204,7 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
   }
 
   // Fingerprint database blueprint
-  Fingerprint fingerprints;
-  std::unordered_map<uint32_t, std::vector<uint64_t>> fgps;
+  std::unordered_map<uint32_t, std::vector<uint64_t>> fingerprint_table;
 
   for (size_t idx = 0; idx < points.size(); ++idx) {
     if (idx + 3 >= points.size()) { break; }
@@ -219,13 +218,6 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
     for (const auto &point : target_zone) {
       int delta_time = std::get<1>(point) - std::get<1>(anchor_point);// NOLINT
 
-      // TODO: Change the song id to an actual song id
-      fingerprints.emplace_back(std::get<2>(anchor_point),
-        std::get<2>(point),
-        delta_time,
-        std::get<1>(anchor_point),// NOLINT
-        1);
-
       // Packing into one value
       uint16_t freq_anchor = std::get<2>(anchor_point) & NINE_BITS_MASK;// NOLINT
       uint16_t freq_point = std::get<2>(point) & NINE_BITS_MASK;// NOLINT
@@ -234,25 +226,25 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
       uint32_t address = 0;
       address |= freq_anchor;
       address |= (static_cast<uint32_t>(freq_point) << 9);// NOLINT
-      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT      
+      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT
 
       uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;// NOLINT
       // TODO: Change this >.<
       uint32_t song_id = 1 & THIRTY_TWO_BITS_MASK;// NOLINT
 
-      [[maybe_unused]] uint64_t couple = 0;
+      uint64_t couple = 0;
       couple |= time_of_anchor;
       couple |= (static_cast<uint64_t>(song_id) << 32);// NOLINT
 
-      if (fgps.contains(address)) {
-        fgps[address].push_back(couple);
+      if (fingerprint_table.contains(address)) {
+        fingerprint_table[address].push_back(couple);
       } else {
-        // Bleh...
+        fingerprint_table[address] = { couple };
       }
     }
   }
 
-  return fingerprints;
+  return fingerprint_table;
 }
 
 }// namespace afs

@@ -4,11 +4,12 @@
 #include <afsproject/audio_file.h>
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 
 namespace afs {
 
 using Matrix = std::vector<std::vector<std::pair<int, double>>>;
-using Fingerprint = std::vector<std::tuple<int, int, int, int, int>>;
+using Fingerprint = std::unordered_map<uint32_t, std::vector<uint64_t>>;
 
 const double TIME_STEP = 0.046;
 const double BIN_SIZE = 10.7;
