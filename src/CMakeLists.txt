@@ -8,6 +8,7 @@ add_executable(AFS
   spectrum.cpp
   spectrogram.cpp
   afs.cpp
+  db.cpp
 )
 
 target_link_libraries(
@@ -21,6 +22,7 @@ target_link_system_libraries(
           matplot
           fftw3
           NumCpp::NumCpp
+          sqlite3
 )
 
 target_include_directories(AFS ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
