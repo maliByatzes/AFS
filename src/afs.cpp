@@ -1,3 +1,4 @@
+#include "afsproject/db.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <afsproject/afs.h>
 #include <afsproject/audio_file.h>
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -90,6 +92,17 @@ void AFS::storingFingerprints(IAudioFile &audio_file)
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
   const Fingerprint fingerprints{ generateFingerprints(matrix) };
+
+  try {
+    SQLiteDB my_db("afs.db");
+
+    if (afs::run(my_db, "db/migration")) {
+      std::cout << "Database migration completed successfully.\n";
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "An unrecoverable error occured: " << e.what() << "\n";
+    return;
+  }
 }
 
 Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
