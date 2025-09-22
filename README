@@ -2,4 +2,5 @@ AFS
 
 Audio Fingerprinting System
 
-TODO: include NumCpp as a github submodule.
+TODO: include NumCpp as a github submodule (make program platform independent).
+TODO: make this README look better, buh.
