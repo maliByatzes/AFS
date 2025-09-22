@@ -1,6 +1,7 @@
 #ifndef afs_h_
 #define afs_h_
 
+#include "afsproject/db.h"
 #include <afsproject/audio_file.h>
 #include <cstdint>
 #include <vector>
@@ -32,7 +33,7 @@ private:
 public:
   AFS() = default;
 
-  static void storingFingerprints(IAudioFile &, long long);
+  static void storingFingerprints(IAudioFile &, long long, SQLiteDB &);
 };
 
 }// namespace afs

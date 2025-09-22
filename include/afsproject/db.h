@@ -52,6 +52,9 @@ public:
     Statement(SQLiteDB &db, const std::string &sql);// NOLINT
     ~Statement();
     void bindText(int index, const std::string &text);
+    void bindInt(int index, int value);
+    void bindDouble(int index, double value);
+    void bindLongLong(int index, long long value);
     int step();
     int columnInt(int index);
     void reset();

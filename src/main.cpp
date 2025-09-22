@@ -69,7 +69,7 @@ void processAudioFile(const std::string &filepath)
     // 1. Store the song metadata
     const long long song_id = storeSongMetadata(*audio_file, my_db, filepath);
     // 2. Store fingerprints of said song
-    AFS::storingFingerprints(*audio_file, song_id);
+    AFS::storingFingerprints(*audio_file, song_id, my_db);
     std::cout << "Fingerprints stored successfully.\n";
   } catch (const std::exception &e) {
     std::cerr << "An unrecoverable error occurred: " << e.what() << "\n";

@@ -1,3 +1,4 @@
+#include "afsproject/db.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <afsproject/afs.h>
 #include <afsproject/audio_file.h>
@@ -8,6 +9,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -85,13 +88,44 @@ void AFS::downSampling(IAudioFile &audio_file)
   }
 }
 
-void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id)
+void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteDB &db) // NOLINT
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
   const Fingerprint fingerprints{ generateFingerprints(matrix, song_id) };
 
-  // TODO: store fingerprints to the database
+  const std::string insert_fingerprint_sql = "INSERT INTO fingerprints (id, song_id) VALUES (?, ?);";
+  const std::string insert_data_sql = "INSERT INTO fingerprint_data (fingerprint_id, value) VALUES (?, ?);";
+
+  try {
+    db.execute("BEGIN;");
+
+    SQLiteDB::Statement fg_stmt(db, insert_fingerprint_sql);
+    SQLiteDB::Statement data_stmt(db, insert_data_sql);
+
+    for (const auto &pair : fingerprints) {
+      const unsigned int fg_id = pair.first;
+      const auto &values = pair.second;
+
+      fg_stmt.bindInt(1, static_cast<int>(fg_id));
+      fg_stmt.bindLongLong(2, song_id);
+      fg_stmt.step();
+      fg_stmt.reset();
+
+      for (const unsigned long value : values) {
+        data_stmt.bindInt(1, static_cast<int>(fg_id));
+        data_stmt.bindLongLong(2, static_cast<long long>(value));
+        data_stmt.step();
+        data_stmt.reset();
+      }
+    }
+
+    db.execute("COMMIT;");
+    std::cout << "Successfully inserted fingerprints for song ID: " << song_id << "\n";
+  } catch (const SQLiteException &e) {
+    db.execute("ROLLBACK;");
+    std::cerr << "Failed to insert fingerprints. Rolled back transaction.\n" << e.what() << "\n";
+  }
 }
 
 Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)

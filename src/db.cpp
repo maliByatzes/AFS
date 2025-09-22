@@ -11,7 +11,7 @@
 
 namespace afs {
 
-SQLiteException::SQLiteException(const std::string &msg) : std::runtime_error("SQLite Error" + msg) {}
+SQLiteException::SQLiteException(const std::string &msg) : std::runtime_error("SQLite Error: " + msg) {}
 
 SQLiteDB::SQLiteDB(const std::string &filename)
 {
@@ -76,6 +76,21 @@ SQLiteDB::Statement::~Statement()
 void SQLiteDB::Statement::bindText(int index, const std::string &text)
 {
   sqlite3_bind_text(m_stmt, index, text.c_str(), -1, SQLITE_TRANSIENT);
+}
+
+void SQLiteDB::Statement::bindInt(int index, int value)
+{
+  sqlite3_bind_int(m_stmt, index, value);
+}
+
+void SQLiteDB::Statement::bindDouble(int index, double value)
+{
+  sqlite3_bind_double(m_stmt, index, value);
+}
+
+void SQLiteDB::Statement::bindLongLong(int index, long long value)
+{
+  sqlite3_bind_int64(m_stmt, index, value);
 }
 
 int SQLiteDB::Statement::step()
