@@ -9,7 +9,7 @@
 
 namespace fs = std::filesystem;
 
-const char *MIGRATION_DIR = "db/migration";// NOLINT
+// const char *MIGRATION_DIR = "db/migration";// NOLINT
 
 namespace afs {
 

@@ -32,7 +32,7 @@ private:
 public:
   AFS() = default;
 
-  static void storingFingerprints(IAudioFile &);
+  static void storingFingerprints(IAudioFile &, long long);
 };
 
 }// namespace afs
