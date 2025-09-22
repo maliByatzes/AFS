@@ -12,8 +12,11 @@
 using namespace afs;
 namespace fs = std::filesystem;
 
-long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::string &filepath) {// NOLINT
-  const std::string sql = "INSERT INTO songs (title, artist, duration_seconds, file_path, sample_rate_hz, bitrate_kbps) VALUES (?, ?, ?, ?, ?, ?);";
+long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::string &filepath)// NOLINT
+{
+  const std::string sql =
+    "INSERT INTO songs (title, artist, duration_seconds, file_path, sample_rate_hz, bitrate_kbps) VALUES (?, ?, ?, ?, "
+    "?, ?);";
   long long song_id = -1;
 
   try {
@@ -22,24 +25,24 @@ long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::str
     SQLiteDB::Statement stmt(db, sql);
 
     // NOTE: this is temporary
-    std::string title = filepath.substr(1, filepath.find('/'));
-    std::cout << "title: " << title << "\n";
-    
-    stmt.bindText(1, title);
+    const std::filesystem::path path(filepath);
+    std::cout << "title: " << path.filename() << "\n";
+
+    stmt.bindText(1, path.filename());
     // NOTE: this is also temporary
     stmt.bindText(2, "");
     stmt.bindText(3, std::to_string(audio_file.getDurationSeconds()));
     stmt.bindText(4, filepath);
     stmt.bindText(5, std::to_string(audio_file.getSampleRate()));// NOLINT
-    stmt.bindText(6, std::to_string(audio_file.getBitDepth())); // NOLINT
+    stmt.bindText(6, std::to_string(audio_file.getBitDepth()));// NOLINT
 
     stmt.step();
 
     song_id = sqlite3_last_insert_rowid(db.get());
-    
+
     db.execute("COMMIT;");
-    std::cout << "Successfully inserted song: " << title << " by mah balls.\n";
-  } catch (const SQLiteException& e) {
+    std::cout << "Successfully inserted song: " << path.filename() << " by mah balls.\n";
+  } catch (const SQLiteException &e) {
     db.execute("ROLLBACK;");
     std::cerr << "Failed to insert song. Rolled back transaction.\n" << e.what() << "\n";
   }
@@ -64,7 +67,7 @@ void processAudioFile(const std::string &filepath)
 
     std::cout << "Processing: " << filepath << " ...\n";
     // 1. Store the song metadata
-    long long song_id = storeSongMetadata(*audio_file, my_db, filepath);
+    const long long song_id = storeSongMetadata(*audio_file, my_db, filepath);
     // 2. Store fingerprints of said song
     AFS::storingFingerprints(*audio_file, song_id);
     std::cout << "Fingerprints stored successfully.\n";

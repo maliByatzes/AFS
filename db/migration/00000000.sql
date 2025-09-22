@@ -11,7 +11,3 @@ CREATE TABLE songs (
     sample_rate_hz INTEGER,
     bitrate_kbps INTEGER
 );
-
-CREATE TABLE fingeprints (
-    
-);

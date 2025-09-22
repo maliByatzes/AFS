@@ -27,7 +27,7 @@ private:
   static void downSampling(IAudioFile &);
   static Matrix shortTimeFourierTransform(IAudioFile &);
   static void filtering(Matrix &);
-  static Fingerprint generateFingerprints(Matrix &);
+  static Fingerprint generateFingerprints(Matrix &, long long);
 
 public:
   AFS() = default;

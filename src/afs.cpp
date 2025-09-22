@@ -89,7 +89,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id)
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
-  const Fingerprint fingerprints{ generateFingerprints(matrix) };
+  const Fingerprint fingerprints{ generateFingerprints(matrix, song_id) };
 
   // TODO: store fingerprints to the database
 }
@@ -191,7 +191,7 @@ void AFS::filtering(Matrix &matrix)
   matrix.swap(filtered_matrix);
 }
 
-Fingerprint AFS::generateFingerprints(Matrix &matrix)
+Fingerprint AFS::generateFingerprints(Matrix &matrix, long long rsong_id)
 {
   // tuple -> index, time, bin
   std::vector<std::tuple<int, int, int>> points;
@@ -232,7 +232,7 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix)
 
       uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;// NOLINT
       // TODO: Change this >.<
-      uint32_t song_id = 1 & THIRTY_TWO_BITS_MASK;// NOLINT
+      uint32_t song_id = static_cast<uint64_t>(rsong_id) & THIRTY_TWO_BITS_MASK;// NOLINT
 
       uint64_t couple = 0;
       couple |= time_of_anchor;
