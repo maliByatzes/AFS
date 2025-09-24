@@ -7,6 +7,22 @@
 
 namespace afs {
 
+/*
+enum class MetadataBlockType : uint8_t {
+  STREAM_INFO = 0,
+  PADDING = 1,
+  APPLICATION = 2,
+  SEEK_TABLE = 3,
+  VORBIS_COMMENT = 4,
+  CUE_SHEET = 5,
+  PICTURE = 6,
+  FORBIDDEN = 127
+};*/
+
+struct StreamInfo
+{
+};
+
 class FlacFile : public IAudioFile// NOLINT
 {
 public:
@@ -26,6 +42,14 @@ public:
 
 private:
   std::vector<uint8_t> m_file_data;
+
+  bool decodeStreaminfo();
+  bool decodePadding();
+  bool decodeApplication();
+  bool decodeSeektable();
+  bool decodeVorbiscomment();
+  bool decodeCuesheet();
+  bool decodePicture();
   
   bool decodeFlacFile();
 

@@ -86,7 +86,7 @@ WaveHeaderChunk WaveFile::decodeHeaderChunk()
   WaveHeaderChunk header_chunk{};
 
   header_chunk.ck_id = { m_file_data.begin(), m_file_data.begin() + 4 };
-  header_chunk.ck_size = convFourBytesToInt32(std::span(m_file_data.begin() + 4, m_file_data.end() + 8));// NOLINT
+  header_chunk.ck_size = convFourBytesToInt32(std::span(m_file_data.begin() + 4, m_file_data.begin() + 8));// NOLINT
   header_chunk.file_type_header = { m_file_data.begin() + 8, m_file_data.begin() + 12 };// NOLINT
 
   return header_chunk;

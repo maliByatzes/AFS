@@ -1,9 +1,12 @@
+#include "afsproject/wave_file.h"
 #include <afsproject/flac_file.h>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -26,7 +29,7 @@ bool FlacFile::load(const std::string &file_path)
   file.seekg(0, std::ios::beg);
 
   m_file_data.reserve(static_cast<size_t>(file_length));
-
+  
   file.read(reinterpret_cast<char *>(m_file_data.data()), file_length);// NOLINT
   file.close();
 
@@ -34,13 +37,13 @@ bool FlacFile::load(const std::string &file_path)
     std::cerr << "Uh oh that did not read the entire file data.\n";
     return false;
   }
-
+  
   // TODO: validate the minimum file data soze for flac files.
 
   return decodeFlacFile();
 }
 
-bool FlacFile::save([[maybe_unused]] const std::string &file_path) const { return true; }
+bool FlacFile::save([[maybe_unused]] const std::string &file_path) const { return false; }
 
 std::vector<double> FlacFile::getPCMData() const { return m_pcm_data; }
 
@@ -65,7 +68,74 @@ int FlacFile::getNumSamplesPerChannel() const
   }
 }
 
-bool FlacFile::decodeFlacFile() { return true; }// NOLINT
+bool FlacFile::decodeFlacFile() {
+  // Process the FLAC marker
+  [[maybe_unused]] const std::string flac_marker = { m_file_data.begin(), m_file_data.begin() + 4 };
 
-bool FlacFile::encodeFlacFile() { return true; }// NOLINT
+  auto position = m_file_data.begin() + 4;
+
+  // process an unknown amount of metadata blocks
+  while (true) {
+    int32_t first_header = convFourBytesToInt32(std::span(position, position + 4));
+
+    uint8_t *first_byte_ptr = reinterpret_cast<uint8_t *>(&first_header);// NOLINT
+    const uint8_t first_byte = *first_byte_ptr;
+    uint8_t first_bit = (first_byte >> 7) & 0x01;// NOLINT
+    uint8_t rem_7_bits = first_byte & 0x7F;// NOLINT
+
+    switch (static_cast<int>(rem_7_bits)) {
+    case 0:
+      std::cout << "Processin' the stream info header.\n";
+      decodeStreaminfo();
+      break;
+    case 1:
+      decodePadding();
+      break;
+    case 2:
+      decodeApplication();
+      break;
+    case 3:
+      decodeSeektable();
+      break;
+    case 4:
+      decodeVorbiscomment();
+      break;
+    case 5:// NOLINT
+      decodeCuesheet();
+      break;
+    case 6:// NOLINT
+      decodePicture();
+      break;
+    case 127:// NOLINT
+      throw std::runtime_error("This metadata block type is forbidden.\n");
+    default:
+      std::cerr << "Unsupported/Reserved metadata block.\n";
+      break;
+    }
+
+    break;
+    // break if this metadata block is the last one
+    if (static_cast<int>(first_bit) == 1) {
+      break;
+    }
+  }
+
+  return false;
+}
+
+bool FlacFile::decodeStreaminfo() { return false; }// NOLINT
+
+bool FlacFile::decodePadding() { return false; }// NOLINT
+
+bool FlacFile::decodeApplication() { return false; }// NOLINT
+
+bool FlacFile::decodeSeektable() { return false; }// NOLINT
+
+bool FlacFile::decodeVorbiscomment() { return false; }// NOLINT
+
+bool FlacFile::decodeCuesheet() { return false; }// NOLINT
+
+bool FlacFile::decodePicture() { return false; }// NOLINT
+
+bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 }// namespace afs
