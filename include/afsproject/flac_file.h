@@ -43,7 +43,7 @@ public:
 private:
   std::vector<uint8_t> m_file_data;
 
-  bool decodeStreaminfo();
+  bool decodeStreaminfo(uint32_t);
   bool decodePadding();
   bool decodeApplication();
   bool decodeSeektable();

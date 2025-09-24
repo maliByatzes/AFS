@@ -29,7 +29,7 @@ bool FlacFile::load(const std::string &file_path)
   file.seekg(0, std::ios::beg);
 
   m_file_data.reserve(static_cast<size_t>(file_length));
-  
+
   file.read(reinterpret_cast<char *>(m_file_data.data()), file_length);// NOLINT
   file.close();
 
@@ -37,7 +37,7 @@ bool FlacFile::load(const std::string &file_path)
     std::cerr << "Uh oh that did not read the entire file data.\n";
     return false;
   }
-  
+
   // TODO: validate the minimum file data soze for flac files.
 
   return decodeFlacFile();
@@ -68,25 +68,39 @@ int FlacFile::getNumSamplesPerChannel() const
   }
 }
 
-bool FlacFile::decodeFlacFile() {
+bool FlacFile::decodeFlacFile()
+{
   // Process the FLAC marker
   [[maybe_unused]] const std::string flac_marker = { m_file_data.begin(), m_file_data.begin() + 4 };
 
-  auto position = m_file_data.begin() + 4;
+  long position = 4;
 
+  // TODO:explicitly check if the first metadata is the `STREAM_INFO`
+
+  
   // process an unknown amount of metadata blocks
   while (true) {
-    int32_t first_header = convFourBytesToInt32(std::span(position, position + 4));
+    int32_t first_header =
+      convFourBytesToInt32(std::span(m_file_data.begin() + position, m_file_data.begin() + position + 4));
+    position += 4;
 
     uint8_t *first_byte_ptr = reinterpret_cast<uint8_t *>(&first_header);// NOLINT
     const uint8_t first_byte = *first_byte_ptr;
     uint8_t first_bit = (first_byte >> 7) & 0x01;// NOLINT
     uint8_t rem_7_bits = first_byte & 0x7F;// NOLINT
 
+    uint8_t second_byte = *(first_byte_ptr + 1);// NOLINT
+    uint8_t third_byte = *(first_byte_ptr + 2);// NOLINT
+    uint8_t fourth_byte = *(first_byte_ptr + 3);// NOLINT
+
+    uint32_t header_size = (static_cast<uint32_t>(second_byte) << 16) | (static_cast<uint32_t>(third_byte) << 8)// NOLINT
+                           | static_cast<uint32_t>(fourth_byte);
+    position += header_size + 1;// NOTE: not sure abt this +1, test later
+
     switch (static_cast<int>(rem_7_bits)) {
     case 0:
       std::cout << "Processin' the stream info header.\n";
-      decodeStreaminfo();
+      decodeStreaminfo(header_size);
       break;
     case 1:
       decodePadding();
@@ -115,15 +129,16 @@ bool FlacFile::decodeFlacFile() {
 
     break;
     // break if this metadata block is the last one
-    if (static_cast<int>(first_bit) == 1) {
-      break;
-    }
+    if (static_cast<int>(first_bit) == 1) { break; }
   }
 
   return false;
 }
 
-bool FlacFile::decodeStreaminfo() { return false; }// NOLINT
+bool FlacFile::decodeStreaminfo(uint32_t header_size)
+{
+  
+}
 
 bool FlacFile::decodePadding() { return false; }// NOLINT
 
