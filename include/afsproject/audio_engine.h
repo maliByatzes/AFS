@@ -5,11 +5,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace afs {
 
-enum class AudioFormat : uint8_t { Wave, Aiff, Mp3, Unsupported };
+enum class AudioFormat : uint8_t { Wave, Flac, Unsupported };
 
 class IAudioFile;
 

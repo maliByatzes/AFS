@@ -1,5 +1,6 @@
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
+#include <afsproject/flac_file.h>
 #include <afsproject/wave_file.h>
 #include <memory>
 #include <string>
@@ -13,6 +14,9 @@ std::unique_ptr<IAudioFile> AudioEngine::loadAudioFile(const std::string &file_p
 
   if (file_path.ends_with(".wav")) {
     auto file = std::make_unique<WaveFile>();
+    if (file->load(file_path)) { return file; }
+  } else if (file_path.ends_with(".flac")) {
+    auto file = std::make_unique<FlacFile>();
     if (file->load(file_path)) { return file; }
   }
 

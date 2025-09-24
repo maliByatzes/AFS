@@ -59,7 +59,7 @@ public:
   [[nodiscard]] int16_t getNumChannels() const override;
   [[nodiscard]] double getDurationSeconds() const override;
   [[nodiscard]] bool isMono() const override;
-  [[nodiscard]] bool isStero() const override;
+  [[nodiscard]] bool isStereo() const override;
   [[nodiscard]] int16_t getBitDepth() const override;
   [[nodiscard]] int getNumSamplesPerChannel() const override;
 

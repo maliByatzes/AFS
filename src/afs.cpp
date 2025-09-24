@@ -23,7 +23,7 @@ void AFS::stereoToMono(IAudioFile &audio_file)
   // Compute simple averaging to chnage from stereo to mon
   // M(t) = (L(t) + R(t)) / 2
 
-  if (audio_file.isStero()) {
+  if (audio_file.isStereo()) {
     std::vector<double> pcm_data = audio_file.getPCMData();
     std::vector<double> avg_pcm_data{};
 

@@ -3,6 +3,7 @@ add_executable(AFS
   fft.cpp
   audio_engine.cpp
   wave_file.cpp
+  flac_file.cpp
   signal.cpp
   wave.cpp
   spectrum.cpp

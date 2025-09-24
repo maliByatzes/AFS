@@ -29,7 +29,7 @@ public:
   [[nodiscard]] virtual int32_t getSampleRate() const = 0;
   [[nodiscard]] virtual int16_t getNumChannels() const = 0;
   [[nodiscard]] virtual bool isMono() const = 0;
-  [[nodiscard]] virtual bool isStero() const = 0;
+  [[nodiscard]] virtual bool isStereo() const = 0;
   [[nodiscard]] virtual int16_t getBitDepth() const = 0;
   [[nodiscard]] virtual int getNumSamplesPerChannel() const = 0;
   [[nodiscard]] virtual double getDurationSeconds() const = 0;

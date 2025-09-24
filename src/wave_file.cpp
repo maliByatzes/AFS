@@ -68,7 +68,7 @@ double WaveFile::getDurationSeconds() const { return double(getNumSamplesPerChan
 
 bool WaveFile::isMono() const { return getNumChannels() == 1; }
 
-bool WaveFile::isStero() const { return getNumChannels() == 2; }
+bool WaveFile::isStereo() const { return getNumChannels() == 2; }
 
 int16_t WaveFile::getBitDepth() const { return m_bit_depth; }
 
