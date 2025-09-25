@@ -2,8 +2,10 @@
 #define flac_file_h_
 
 #include <afsproject/audio_file.h>
+#include <bit>
 #include <bitset>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace afs {
@@ -46,7 +48,7 @@ public:
 private:
   std::vector<uint8_t> m_file_data;
 
-  bool decodeStreaminfo(uint32_t);
+  bool decodeStreaminfo(uint32_t, long);
   bool decodePadding();
   bool decodeApplication();
   bool decodeSeektable();
@@ -59,8 +61,33 @@ private:
   bool encodeFlacFile();
 };
 
+class BitStreamReader
+{
+private:
+  std::span<const uint8_t> m_data;
+  size_t m_bit_position = 0;
+
+  std::vector<uint8_t> extract_relevant_bytes(int);
+
+public:
+  explicit BitStreamReader(std::span<const uint8_t>);
+
+  uint64_t read_bits(int, std::endian = std::endian::big);
+
+private:
+  uint64_t read_simple_bits(int, std::endian);
+  uint64_t read_complex_bits(int, std::endian);  
+  uint64_t swap_bytes_in_value(uint64_t, int);
+
+public:
+  void reset();
+  [[nodiscard]] size_t get_bit_position() const;
+  [[nodiscard]] size_t get_remaining_bits() const;
+};
+
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
 std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
+
 
 }// namespace afs
 

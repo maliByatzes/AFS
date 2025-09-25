@@ -2,6 +2,7 @@
 #include <afsproject/flac_file.h>
 #include <bit>
 #include <bitset>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -15,6 +16,10 @@
 // NOTE/TODO: should probably write the implementation somewhere
 // once so i don't repeat same code over and over again.
 namespace afs {
+
+/*
+ * FlacFile class implementation
+ */
 
 bool FlacFile::load(const std::string &file_path)
 {
@@ -88,16 +93,14 @@ bool FlacFile::decodeFlacFile()
 
     std::bitset<32> fh_bits(static_cast<uint32_t>(first_header));// NOLINT
 
-    auto header_size = static_cast<uint32_t>(extract_from_msb(fh_bits, 8, 24).to_ullong());// NOLINT
+    [[maybe_unused]] auto header_size = static_cast<uint32_t>(extract_from_msb(fh_bits, 8, 24).to_ullong());// NOLINT
     [[maybe_unused]] const int first_bit = static_cast<int>(fh_bits[fh_bits.size() - 1]);
     auto rem_7_bits = static_cast<int>(extract_from_msb(fh_bits, 1, 7).to_ullong());// NOLINT
-
-    position += header_size + 1;// NOTE: not sure abt this +1, test later
 
     switch (rem_7_bits) {
     case 0:
       std::cout << "Processin' the stream info header.\n";
-      decodeStreaminfo(header_size);
+      // decodeStreaminfo(header_size);
       break;
     case 1:
       decodePadding();
@@ -132,8 +135,20 @@ bool FlacFile::decodeFlacFile()
   return false;
 }
 
-bool FlacFile::decodeStreaminfo([[maybe_unused]] uint32_t header_size)// NOLINT
+bool FlacFile::decodeStreaminfo([[maybe_unused]] uint32_t header_size, [[maybe_unused]] long position)// NOLINT
 {
+  // u(16) -> minimum block size
+
+
+  // u(16) -> maximum block size
+  // u(24) -> minimum frame size
+  // u(24) -> maximum frame size
+  // u(20) -> sample rate in Hz
+  // u(3) -> number of channels - 1
+  // u(5) -> bits per sample - 1
+  // u(36) -> total number of interchannel samples
+  // u(128) -> MD5 checksum
+
   return false;
 }
 
@@ -150,6 +165,114 @@ bool FlacFile::decodeCuesheet() { return false; }// NOLINT
 bool FlacFile::decodePicture() { return false; }// NOLINT
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
+
+/*
+ * BitStreamReader
+ */
+
+BitStreamReader::BitStreamReader(std::span<const uint8_t> data) : m_data(data) {}
+
+std::vector<uint8_t> BitStreamReader::extract_relevant_bytes(int num_bits)
+{
+  size_t start_byte = m_bit_position / 8;// NOLINT
+  size_t end_byte = (m_bit_position + size_t(num_bits) - 1) / 8;// NOLINT
+  [[maybe_unused]] const size_t num_bytes = end_byte - start_byte + 1;
+
+  if (end_byte >= m_data.size()) { throw std::runtime_error("Not enough data"); }
+
+  std::vector<uint8_t> bytes;
+  for (size_t i = start_byte; i <= end_byte; ++i) { bytes.push_back(m_data[i]); }
+
+  return bytes;
+}
+
+uint64_t BitStreamReader::read_bits(int num_bits, std::endian byte_order)
+{
+  assert(num_bits <= 64 && num_bits > 0);
+
+  if (num_bits <= 8 && (m_bit_position % 8 == 0)) {// NOLINT
+    return read_simple_bits(num_bits, byte_order);
+  } else {
+    return read_complex_bits(num_bits, byte_order);
+  }
+}
+
+uint64_t BitStreamReader::read_simple_bits(int num_bits, std::endian byte_order)
+{
+  size_t start_byte = m_bit_position / 8;// NOLINT
+  size_t num_bytes = (size_t(num_bits) + 7) / 8;// NOLINT
+
+  if (start_byte + num_bytes > m_data.size()) { throw std::runtime_error("Not enough data"); }
+
+  uint64_t result = 0;
+
+  if (byte_order == std::endian::little) {
+    for (size_t i = 0; i < num_bytes; ++i) {
+      result = (result << 8) | m_data[start_byte + i];// NOLINT
+    }
+  } else {
+    for (size_t i = num_bytes; i > 0; --i) {
+      result = (result << 8) | m_data[start_byte + i - 1];// NOLINT
+    }
+  }
+
+  if (num_bits < 64) {// NOLINT
+    result &= (1ULL << num_bits) - 1;// NOLINT
+  }
+
+  m_bit_position += size_t(num_bits);
+  return result;
+}
+
+uint64_t BitStreamReader::read_complex_bits(int num_bits, std::endian byte_order)
+{
+  uint64_t result = 0;
+  [[maybe_unused]] const size_t start_bit_pos = m_bit_position;
+
+  for (int i = 0; i < num_bits; ++i) {
+    size_t byte_idx = m_bit_position / 8;// NOLINT
+    size_t bit_in_byte = m_bit_position % 8;// NOLINT
+
+    if (byte_idx >= m_data.size()) { throw std::runtime_error("Not enough data"); }
+
+    bool bit = (m_data[byte_idx] >> (7 - bit_in_byte)) & 1;// NOLINT
+    result = (result << 1) | bit;// NOLINT
+
+    ++m_bit_position;
+  }
+
+  if (num_bits > 8 && byte_order == std::endian::little) {// NOLINT
+    result = swap_bytes_in_value(result, num_bits);
+  }
+
+  return result;
+}
+
+uint64_t BitStreamReader::swap_bytes_in_value(uint64_t value, int num_bits)// NOLINT
+{
+  int num_bytes = (num_bits + 7) / 8;// NOLINT
+  uint64_t result = 0;
+
+  for (int i = 0; i < num_bytes; ++i) {
+    uint8_t byte = (value >> (i * 8)) & 0xFF;// NOLINT
+    result = (result << 8) | byte;// NOLINT
+  }
+
+  if (num_bits % 8 != 0) {// NOLINT
+    int extra_bits = 8 - (num_bits % 8);// NOLINT
+    result >>= extra_bits;// NOLINT
+  }
+
+  return result;
+}
+
+void BitStreamReader::reset() { m_bit_position = 0; }
+
+size_t BitStreamReader::get_bit_position() const { return m_bit_position; }
+size_t BitStreamReader::get_remaining_bits() const { return (m_data.size() * 8) - m_bit_position; }// NOLINT
+/*
+ * Utility functions (temporary)
+ */
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &bits, size_t pos, int k)// NOLINT
 {
