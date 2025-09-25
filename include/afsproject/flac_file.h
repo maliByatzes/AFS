@@ -2,11 +2,14 @@
 #define flac_file_h_
 
 #include <afsproject/audio_file.h>
+#include <bitset>
 #include <cstdint>
 #include <vector>
 
 namespace afs {
-
+  
+const int THIRTY_TWO = 32;
+  
 /*
 enum class MetadataBlockType : uint8_t {
   STREAM_INFO = 0,
@@ -55,6 +58,9 @@ private:
 
   bool encodeFlacFile();
 };
+
+std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
+std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
 
 }// namespace afs
 
