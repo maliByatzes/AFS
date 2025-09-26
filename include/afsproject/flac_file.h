@@ -5,6 +5,7 @@
 #include <bit>
 #include <bitset>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -26,39 +27,6 @@ enum class MetadataBlockType : uint8_t {
 
 struct StreamInfo
 {
-};
-
-class FlacFile : public IAudioFile// NOLINT
-{
-public:
-  FlacFile() = default;
-  ~FlacFile() override = default;
-
-  bool load(const std::string &file_path) override;
-  [[nodiscard]] bool save(const std::string &file_path) const override;
-  [[nodiscard]] std::vector<double> getPCMData() const override;
-  [[nodiscard]] int32_t getSampleRate() const override;
-  [[nodiscard]] int16_t getNumChannels() const override;
-  [[nodiscard]] double getDurationSeconds() const override;
-  [[nodiscard]] bool isMono() const override;
-  [[nodiscard]] bool isStereo() const override;
-  [[nodiscard]] int16_t getBitDepth() const override;
-  [[nodiscard]] int getNumSamplesPerChannel() const override;
-
-private:
-  std::vector<uint8_t> m_file_data;
-
-  bool decodeStreaminfo(uint32_t, long);
-  bool decodePadding();
-  bool decodeApplication();
-  bool decodeSeektable();
-  bool decodeVorbiscomment();
-  bool decodeCuesheet();
-  bool decodePicture();
-  
-  bool decodeFlacFile();
-
-  bool encodeFlacFile();
 };
 
 class BitStreamReader
@@ -83,6 +51,40 @@ public:
   void reset();
   [[nodiscard]] size_t get_bit_position() const;
   [[nodiscard]] size_t get_remaining_bits() const;
+};
+
+class FlacFile : public IAudioFile// NOLINT
+{
+public:
+  FlacFile() = default;
+  ~FlacFile() override = default;
+
+  bool load(const std::string &file_path) override;
+  [[nodiscard]] bool save(const std::string &file_path) const override;
+  [[nodiscard]] std::vector<double> getPCMData() const override;
+  [[nodiscard]] int32_t getSampleRate() const override;
+  [[nodiscard]] int16_t getNumChannels() const override;
+  [[nodiscard]] double getDurationSeconds() const override;
+  [[nodiscard]] bool isMono() const override;
+  [[nodiscard]] bool isStereo() const override;
+  [[nodiscard]] int16_t getBitDepth() const override;
+  [[nodiscard]] int getNumSamplesPerChannel() const override;
+
+private:
+  std::vector<uint8_t> m_file_data;
+  std::unique_ptr<BitStreamReader> m_bit_reader;
+
+  bool decodeStreaminfo(uint32_t, long);
+  bool decodePadding();
+  bool decodeApplication();
+  bool decodeSeektable();
+  bool decodeVorbiscomment();
+  bool decodeCuesheet();
+  bool decodePicture();
+  
+  bool decodeFlacFile();
+
+  bool encodeFlacFile();
 };
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);

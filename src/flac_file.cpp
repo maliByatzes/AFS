@@ -1,4 +1,4 @@
-#include "afsproject/wave_file.h"
+#include <afsproject/wave_file.h>
 #include <afsproject/flac_file.h>
 #include <bit>
 #include <bitset>
@@ -167,7 +167,7 @@ bool FlacFile::decodePicture() { return false; }// NOLINT
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
 /*
- * BitStreamReader
+ * BitStreamReader class implementation
  */
 
 BitStreamReader::BitStreamReader(std::span<const uint8_t> data) : m_data(data) {}
@@ -270,6 +270,7 @@ void BitStreamReader::reset() { m_bit_position = 0; }
 
 size_t BitStreamReader::get_bit_position() const { return m_bit_position; }
 size_t BitStreamReader::get_remaining_bits() const { return (m_data.size() * 8) - m_bit_position; }// NOLINT
+
 /*
  * Utility functions (temporary)
  */
