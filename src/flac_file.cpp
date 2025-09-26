@@ -8,6 +8,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -35,7 +36,7 @@ bool FlacFile::load(const std::string &file_path)
   auto file_length = file.tellg();
   file.seekg(0, std::ios::beg);
 
-  m_file_data.reserve(static_cast<size_t>(file_length));
+  m_file_data.resize(static_cast<size_t>(file_length));
 
   file.read(reinterpret_cast<char *>(m_file_data.data()), file_length);// NOLINT
   file.close();
@@ -45,6 +46,8 @@ bool FlacFile::load(const std::string &file_path)
     return false;
   }
 
+  m_bit_reader = std::make_unique<BitStreamReader>(m_file_data);
+  
   // TODO: validate the minimum file data soze for flac files.
 
   return decodeFlacFile();
@@ -84,11 +87,15 @@ bool FlacFile::decodeFlacFile()
 
   // TODO:explicitly check if the first metadata is the `STREAM_INFO`
 
-
   // process an unknown amount of metadata blocks
   while (true) {
+    std::cout << "pos be4 reading: " << m_bit_reader->get_bit_position() << "\n";
+    auto fs_header = m_bit_reader->read_bits(32);// NOLINT
+    std::cout << "fs_header: " << fs_header << "\n";
+    
     const int32_t first_header = convFourBytesToInt32(
       std::span(m_file_data.begin() + position, m_file_data.begin() + position + 4), std::endian::big);
+    std::cout << "first_header: " << first_header << "\n";
     position += 4;
 
     std::bitset<32> fh_bits(static_cast<uint32_t>(first_header));// NOLINT
@@ -178,7 +185,7 @@ std::vector<uint8_t> BitStreamReader::extract_relevant_bytes(int num_bits)
   size_t end_byte = (m_bit_position + size_t(num_bits) - 1) / 8;// NOLINT
   [[maybe_unused]] const size_t num_bytes = end_byte - start_byte + 1;
 
-  if (end_byte >= m_data.size()) { throw std::runtime_error("Not enough data"); }
+  if (end_byte >= m_data.size()) { throw std::runtime_error("1. Not enough data"); }
 
   std::vector<uint8_t> bytes;
   for (size_t i = start_byte; i <= end_byte; ++i) { bytes.push_back(m_data[i]); }
@@ -202,7 +209,7 @@ uint64_t BitStreamReader::read_simple_bits(int num_bits, std::endian byte_order)
   size_t start_byte = m_bit_position / 8;// NOLINT
   size_t num_bytes = (size_t(num_bits) + 7) / 8;// NOLINT
 
-  if (start_byte + num_bytes > m_data.size()) { throw std::runtime_error("Not enough data"); }
+  if (start_byte + num_bytes > m_data.size()) { throw std::runtime_error("2. Not enough data"); }
 
   uint64_t result = 0;
 
@@ -233,7 +240,7 @@ uint64_t BitStreamReader::read_complex_bits(int num_bits, std::endian byte_order
     size_t byte_idx = m_bit_position / 8;// NOLINT
     size_t bit_in_byte = m_bit_position % 8;// NOLINT
 
-    if (byte_idx >= m_data.size()) { throw std::runtime_error("Not enough data"); }
+    if (byte_idx >= m_data.size()) { throw std::runtime_error("3. Not enough data"); }
 
     bool bit = (m_data[byte_idx] >> (7 - bit_in_byte)) & 1;// NOLINT
     result = (result << 1) | bit;// NOLINT
