@@ -43,9 +43,9 @@ public:
   uint64_t read_bits(int, std::endian = std::endian::big);
 
 private:
-  uint64_t read_simple_bits(int, std::endian);
-  uint64_t read_complex_bits(int, std::endian);  
-  uint64_t swap_bytes_in_value(uint64_t, int);
+  uint64_t read_byte_aligned_bits(int, std::endian);
+  uint64_t read_bit_aligned_bits(int, std::endian);  
+  uint64_t swap_bytes(uint64_t, int);
 
 public:
   void reset();

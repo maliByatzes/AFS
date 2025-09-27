@@ -99,6 +99,7 @@ bool FlacFile::decodeFlacFile()
     position += 4;
 
     std::bitset<32> fh_bits(static_cast<uint32_t>(first_header));// NOLINT
+    std::cout << "fh_bits: " << fh_bits << "\n";
 
     [[maybe_unused]] auto header_size = static_cast<uint32_t>(extract_from_msb(fh_bits, 8, 24).to_ullong());// NOLINT
     [[maybe_unused]] const int first_bit = static_cast<int>(fh_bits[fh_bits.size() - 1]);
@@ -197,17 +198,17 @@ uint64_t BitStreamReader::read_bits(int num_bits, std::endian byte_order)
 {
   assert(num_bits <= 64 && num_bits > 0);
 
-  if (num_bits <= 8 && (m_bit_position % 8 == 0)) {// NOLINT
-    return read_simple_bits(num_bits, byte_order);
+  if ((m_bit_position % 8 == 0) && (num_bits % 8 == 0)) {// NOLINT
+    return read_byte_aligned_bits(num_bits, byte_order);
   } else {
-    return read_complex_bits(num_bits, byte_order);
+    return read_bit_aligned_bits(num_bits, byte_order);
   }
 }
 
-uint64_t BitStreamReader::read_simple_bits(int num_bits, std::endian byte_order)
+uint64_t BitStreamReader::read_byte_aligned_bits(int num_bits, std::endian byte_order)
 {
   size_t start_byte = m_bit_position / 8;// NOLINT
-  size_t num_bytes = (size_t(num_bits) + 7) / 8;// NOLINT
+  size_t num_bytes = size_t(num_bits) / 8;// NOLINT
 
   if (start_byte + num_bytes > m_data.size()) { throw std::runtime_error("2. Not enough data"); }
 
@@ -218,58 +219,60 @@ uint64_t BitStreamReader::read_simple_bits(int num_bits, std::endian byte_order)
       result = (result << 8) | m_data[start_byte + i];// NOLINT
     }
   } else {
-    for (size_t i = num_bytes; i > 0; --i) {
-      result = (result << 8) | m_data[start_byte + i - 1];// NOLINT
+    for (size_t i = 0; i < num_bytes; ++i) {
+      std::cout << "idx: " << start_byte + num_bytes - 1 - i << "\n\n";
+      result = (result << 8) | m_data[start_byte + num_bytes - 1 - i];// NOLINT
     }
   }
 
+  /*
   if (num_bits < 64) {// NOLINT
     result &= (1ULL << num_bits) - 1;// NOLINT
-  }
+  }*/
 
   m_bit_position += size_t(num_bits);
   return result;
 }
 
-uint64_t BitStreamReader::read_complex_bits(int num_bits, std::endian byte_order)
+uint64_t BitStreamReader::read_bit_aligned_bits(int num_bits, std::endian byte_order)
 {
   uint64_t result = 0;
-  [[maybe_unused]] const size_t start_bit_pos = m_bit_position;
 
+std::cerr << "\n\nThe start of iteration loop through 0 -> num_bits.\n";
   for (int i = 0; i < num_bits; ++i) {
+std::cerr << "i: " << i << ", num_bits: " << num_bits <<", m_bit_pos: " << m_bit_position << "\n";
     size_t byte_idx = m_bit_position / 8;// NOLINT
     size_t bit_in_byte = m_bit_position % 8;// NOLINT
+std::cerr << "byte_idx: " << byte_idx << ", bit_in_byte: " << bit_in_byte << "\n";
 
+std::cerr << "m_data.size(): " << m_data.size() << "\n";
     if (byte_idx >= m_data.size()) { throw std::runtime_error("3. Not enough data"); }
 
     bool bit = (m_data[byte_idx] >> (7 - bit_in_byte)) & 1;// NOLINT
+std::cerr << "bit: " << (bit ? 1 : 0) << "\n";
     result = (result << 1) | bit;// NOLINT
+std::cerr << "result: " << result << "\n";
 
+std::cerr << "increment m_bit_pos.\n";
     ++m_bit_position;
+
+std::cerr << "iteration done, next one inbound or not.\n\n";
   }
 
-  if (num_bits > 8 && byte_order == std::endian::little) {// NOLINT
-    result = swap_bytes_in_value(result, num_bits);
+  if (byte_order == std::endian::little && num_bits >= 16 && (num_bits % 8) == 0) {// NOLINT
+    result = swap_bytes(result, num_bits / 8);// NOLINT
   }
 
   return result;
 }
 
-uint64_t BitStreamReader::swap_bytes_in_value(uint64_t value, int num_bits)// NOLINT
+uint64_t BitStreamReader::swap_bytes(uint64_t value, int num_bytes)// NOLINT
 {
-  int num_bytes = (num_bits + 7) / 8;// NOLINT
   uint64_t result = 0;
-
   for (int i = 0; i < num_bytes; ++i) {
     uint8_t byte = (value >> (i * 8)) & 0xFF;// NOLINT
     result = (result << 8) | byte;// NOLINT
   }
-
-  if (num_bits % 8 != 0) {// NOLINT
-    int extra_bits = 8 - (num_bits % 8);// NOLINT
-    result >>= extra_bits;// NOLINT
-  }
-
   return result;
 }
 
