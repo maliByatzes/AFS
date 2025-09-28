@@ -29,30 +29,6 @@ struct StreamInfo
 {
 };
 
-class BitStreamReader
-{
-private:
-  std::span<const uint8_t> m_data;
-  size_t m_bit_position = 0;
-
-  std::vector<uint8_t> extract_relevant_bytes(int);
-
-public:
-  explicit BitStreamReader(std::span<const uint8_t>);
-
-  uint64_t read_bits(int, std::endian = std::endian::big);
-
-private:
-  uint64_t read_byte_aligned_bits(int, std::endian);
-  uint64_t read_bit_aligned_bits(int, std::endian);  
-  uint64_t swap_bytes(uint64_t, int);
-
-public:
-  void reset();
-  [[nodiscard]] size_t get_bit_position() const;
-  [[nodiscard]] size_t get_remaining_bits() const;
-};
-
 class FlacFile : public IAudioFile// NOLINT
 {
 public:
@@ -72,7 +48,6 @@ public:
 
 private:
   std::vector<uint8_t> m_file_data;
-  std::unique_ptr<BitStreamReader> m_bit_reader;
 
   bool decodeStreaminfo(uint32_t, long);
   bool decodePadding();
