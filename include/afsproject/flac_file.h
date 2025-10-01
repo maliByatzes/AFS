@@ -5,8 +5,6 @@
 #include <bit>
 #include <bitset>
 #include <cstdint>
-#include <memory>
-#include <span>
 #include <vector>
 
 namespace afs {
@@ -61,6 +59,10 @@ private:
 
   bool encodeFlacFile();
 };
+
+uint64_t read_bits(const std::vector<uint8_t> &, long &, int, std::endian = std::endian::big);
+uint64_t read_simple_bytes(const std::vector<uint8_t> &, long &, int, std::endian = std::endian::big);
+uint64_t read_complex_bits(const std::vector<uint8_t> &, long &, int);
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
 std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);

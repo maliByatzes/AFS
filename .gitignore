@@ -8,6 +8,7 @@ conan-cache/
 .cache/
 *.svg/
 afs.db
+.ccls-cache/
 
 CMakeUserPresets.json
 

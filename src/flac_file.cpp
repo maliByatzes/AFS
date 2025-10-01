@@ -1,5 +1,5 @@
-#include <afsproject/wave_file.h>
 #include <afsproject/flac_file.h>
+#include <afsproject/wave_file.h>
 #include <bit>
 #include <bitset>
 #include <cassert>
@@ -44,7 +44,7 @@ bool FlacFile::load(const std::string &file_path)
     std::cerr << "Uh oh that did not read the entire file data.\n";
     return false;
   }
-  
+
   // TODO: validate the minimum file data soze for flac files.
 
   return decodeFlacFile();
@@ -168,6 +168,73 @@ bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 /*
  * Utility functions (temporary)
  */
+
+uint64_t read_bits(const std::vector<uint8_t> &data, long &pos, int num_bits, std::endian endianness)// NOLINT
+{
+  assert(num_bits > 0 && data.size() > num_bits);
+
+  uint64_t result = 0;
+
+  if (num_bits % 8 == 0) {// NOLINT
+    result = read_simple_bytes(data, pos, num_bits, endianness);
+  } else {
+    result = read_complex_bits(data, pos, num_bits);
+  }
+
+  return result;
+}
+
+uint64_t read_simple_bytes(const std::vector<uint8_t> &data, long &pos, int num_bits, std::endian endianness)
+{
+  int num_bytes = num_bits / 8;// NOLINT
+  pos += num_bits;
+
+  std::vector<uint8_t> bytes(static_cast<size_t>(num_bytes));
+  for (size_t i = 0; i < size_t(num_bytes); ++i) {// NOLINT
+    bytes[i] = data[i];
+  }
+
+  uint64_t res = 0;
+
+  switch (num_bytes) {
+  case 1:
+    res = bytes[0];
+    break;
+  case 2:
+    if (endianness == std::endian::little) {
+      res = static_cast<uint64_t>((data[1] << 8) | data[0]);// NOLINT
+    } else {
+      res = static_cast<uint64_t>((data[0] << 8) | data[1]);// NOLINT
+    }
+    break;
+  case 3:
+    if (endianness == std::endian::little) {
+      res = static_cast<uint64_t>((data[2] << 16) | (data[1] << 8) | data[0]);// NOLINT
+    } else {
+      res = static_cast<uint64_t>((data[0] << 16) | (data[1] << 8) | data[2]);// NOLINT
+    }
+    break;
+  case 4:
+    if (endianness == std::endian::little) {
+      res = static_cast<uint64_t>((data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0]);// NOLINT
+    } else {
+      res = static_cast<uint64_t>((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[1]);// NOLINT
+    }
+    break;
+  default:
+    throw std::runtime_error("Unsupported number of bytes.");
+  }
+
+  return res;
+}
+
+uint64_t read_complex_bits([[maybe_unused]] const std::vector<uint8_t> &data,
+  [[maybe_unused]] long &pos,
+  [[maybe_unused]] int num_bits)
+{
+  const uint64_t res = 0;
+  return res;
+}
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &bits, size_t pos, int k)// NOLINT
 {

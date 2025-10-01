@@ -15,7 +15,8 @@ add_executable(AFS
 target_link_libraries(
   AFS
   PRIVATE afsproject::afsproject_options
-          afsproject::afsproject_warnings)
+          afsproject::afsproject_warnings
+          etl)
 
 target_link_system_libraries(
   AFS

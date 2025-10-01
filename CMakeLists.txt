@@ -28,6 +28,8 @@ afsproject_setup_dependencies()
 
 afsproject_local_options()
 
+set(GIT_DIR_LOOKUP_POLICY ALLOW_LOOKING_ABOVE_CMAKE_SOURCE_DIR)
+
 # don't know if this should be set globally from here or not...
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
@@ -50,6 +52,9 @@ add_library(afsproject::afsproject_warnings ALIAS afsproject_warnings)
 
 # configure files based on CMake configuration options
 # add_subdirectory(configured_files)
+
+# Adding the external:
+add_subdirectory(external/etl)
 
 # Adding the src:
 add_subdirectory(src)
