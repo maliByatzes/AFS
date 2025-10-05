@@ -1,15 +1,14 @@
 #include <afsproject/flac_file.h>
-#include <afsproject/wave_file.h>
-#include <bit>
 #include <bitset>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <etl/bit_stream.h>
+#include <etl/endianness.h>
+#include <etl/span.h>
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <span>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -77,25 +76,32 @@ int FlacFile::getNumSamplesPerChannel() const
 
 bool FlacFile::decodeFlacFile()
 {
-  // Process the FLAC marker
-  [[maybe_unused]] const std::string flac_marker = { m_file_data.begin(), m_file_data.begin() + 4 };
+  const etl::span<const uint8_t> data_span(m_file_data.data(), m_file_data.size());
+  etl::bit_stream_reader reader(data_span, etl::endian::big);
 
-  [[maybe_unused]] long position = 4;
+  const uint32_t flac_marker = 0;
+  reader.read<uint32_t>(32);// NOLINT
+
+  std::string marker_str;
+  // NOLINTBEGIN
+  marker_str += static_cast<char>((flac_marker >> 24) & 0xFF);
+  marker_str += static_cast<char>((flac_marker >> 16) & 0xFF);
+  marker_str += static_cast<char>((flac_marker >> 8) & 0xFF);
+  marker_str += static_cast<char>(flac_marker & 0xFF);
+  // NOLINTEND
+
+  std::cout << "FLAC marker: " << marker_str << "\n";
+
+  if (marker_str != "fLaC") {
+    std::cerr << "Invalid FLAC file marker\n";
+    return false;
+  }
 
   // TODO:explicitly check if the first metadata is the `STREAM_INFO`
 
+  /*
   // process an unknown amount of metadata blocks
   while (true) {
-    const int32_t first_header = convFourBytesToInt32(
-      std::span(m_file_data.begin() + position, m_file_data.begin() + position + 4), std::endian::big);
-    position += 4;
-
-    std::bitset<32> fh_bits(static_cast<uint32_t>(first_header));// NOLINT
-
-    [[maybe_unused]] auto header_size = static_cast<uint32_t>(extract_from_msb(fh_bits, 8, 24).to_ullong());// NOLINT
-    [[maybe_unused]] const int first_bit = static_cast<int>(fh_bits[fh_bits.size() - 1]);
-    auto rem_7_bits = static_cast<int>(extract_from_msb(fh_bits, 1, 7).to_ullong());// NOLINT
-
     switch (rem_7_bits) {
     case 0:
       std::cout << "Processin' the stream info header.\n";
@@ -129,7 +135,7 @@ bool FlacFile::decodeFlacFile()
     break;
     // break if this metadata block is the last one
     if (first_bit == 1) { break; }
-  }
+  }*/
 
   return false;
 }
@@ -168,73 +174,6 @@ bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 /*
  * Utility functions (temporary)
  */
-
-uint64_t read_bits(const std::vector<uint8_t> &data, long &pos, int num_bits, std::endian endianness)// NOLINT
-{
-  assert(num_bits > 0 && data.size() > num_bits);
-
-  uint64_t result = 0;
-
-  if (num_bits % 8 == 0) {// NOLINT
-    result = read_simple_bytes(data, pos, num_bits, endianness);
-  } else {
-    result = read_complex_bits(data, pos, num_bits);
-  }
-
-  return result;
-}
-
-uint64_t read_simple_bytes(const std::vector<uint8_t> &data, long &pos, int num_bits, std::endian endianness)
-{
-  int num_bytes = num_bits / 8;// NOLINT
-  pos += num_bits;
-
-  std::vector<uint8_t> bytes(static_cast<size_t>(num_bytes));
-  for (size_t i = 0; i < size_t(num_bytes); ++i) {// NOLINT
-    bytes[i] = data[i];
-  }
-
-  uint64_t res = 0;
-
-  switch (num_bytes) {
-  case 1:
-    res = bytes[0];
-    break;
-  case 2:
-    if (endianness == std::endian::little) {
-      res = static_cast<uint64_t>((data[1] << 8) | data[0]);// NOLINT
-    } else {
-      res = static_cast<uint64_t>((data[0] << 8) | data[1]);// NOLINT
-    }
-    break;
-  case 3:
-    if (endianness == std::endian::little) {
-      res = static_cast<uint64_t>((data[2] << 16) | (data[1] << 8) | data[0]);// NOLINT
-    } else {
-      res = static_cast<uint64_t>((data[0] << 16) | (data[1] << 8) | data[2]);// NOLINT
-    }
-    break;
-  case 4:
-    if (endianness == std::endian::little) {
-      res = static_cast<uint64_t>((data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0]);// NOLINT
-    } else {
-      res = static_cast<uint64_t>((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[1]);// NOLINT
-    }
-    break;
-  default:
-    throw std::runtime_error("Unsupported number of bytes.");
-  }
-
-  return res;
-}
-
-uint64_t read_complex_bits([[maybe_unused]] const std::vector<uint8_t> &data,
-  [[maybe_unused]] long &pos,
-  [[maybe_unused]] int num_bits)
-{
-  const uint64_t res = 0;
-  return res;
-}
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &bits, size_t pos, int k)// NOLINT
 {
