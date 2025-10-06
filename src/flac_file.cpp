@@ -116,9 +116,8 @@ bool FlacFile::decodeFlacFile()
       if (!decodePadding(reader, block_size)) { return false; }
       break;
     case 2:
-      // decodeApplication();
-      std::cout << "Skippin' application metadata block.\n";
-      reader.skip(block_size * 8);// NOLINT
+      std::cout << "Processin' the application block.\n";
+      if (!decodeApplication(reader, block_size)) { return false; }
       break;
     case 3:
       // decodeSeektable();
@@ -253,7 +252,20 @@ bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size
   return true;
 }
 
-bool FlacFile::decodeApplication() { return false; }// NOLINT
+bool FlacFile::decodeApplication(etl::bit_stream_reader &reader, uint32_t block_size)
+{
+  // u(32) -> registered application ID.
+  auto app_id = reader.read<uint32_t>(32).value();// NOLINT
+  uint n = (block_size * 8) - 32;// NOLINT
+
+  std::cout << "APPLICATION:\n"
+            << " n: " << n << "\n"
+            << " Application ID: " << app_id << "\n";
+
+  reader.skip(n);
+
+  return true;
+}
 
 bool FlacFile::decodeSeektable() { return false; }// NOLINT
 
