@@ -161,19 +161,39 @@ bool FlacFile::decodeFlacFile()
 bool FlacFile::decodeStreaminfo([[maybe_unused]] etl::bit_stream_reader &reader,// NOLINT
   [[maybe_unused]] uint32_t block_size)
 {
+  if (block_size != 34) { std::cerr << "Invalid STREAMINFO block size: " << block_size << " (expected 34)\n"; }// NOLINT
+
   // u(16) -> minimum block size
-
-
+  auto min_block_size = reader.read<uint16_t>(16).value();// NOLINT
   // u(16) -> maximum block size
+  auto max_block_size = reader.read<uint16_t>(16).value();// NOLINT
   // u(24) -> minimum frame size
+  auto min_frame_size = reader.read<uint32_t>(24).value();// NOLINT
   // u(24) -> maximum frame size
+  auto max_frame_size = reader.read<uint32_t>(24).value();// NOLINT
   // u(20) -> sample rate in Hz
+  auto sample_rate = reader.read<uint32_t>(20).value();// NOLINT
   // u(3) -> number of channels - 1
+  auto num_channels = reader.read<uint8_t>(3).value();
   // u(5) -> bits per sample - 1
+  auto bits_per_samples = reader.read<uint8_t>(5).value();// NOLINT
   // u(36) -> total number of interchannel samples
-  // u(128) -> MD5 checksum
+  auto total_samples = reader.read<uint64_t>(36).value();// NOLINT
 
-  return false;
+  // u(128) -> MD5 checksum -> skip
+  reader.skip(128);// NOLINT
+
+  std::cout << "STREAMINFO:\n"
+            << " Min block size: " << min_block_size << "\n"
+            << " Max block size: " << max_block_size << "\n"
+            << " Min frame size: " << min_frame_size << "\n"
+            << " Max frame size: " << max_frame_size << "\n"
+            << " Sample rate: " << sample_rate << "\n"
+            << " Channels: " << num_channels << "\n"
+            << " Bits per sample: " << bits_per_samples << "\n"
+            << " Total samples: " << total_samples << "\n";
+
+  return true;
 }
 
 bool FlacFile::decodePadding() { return false; }// NOLINT
