@@ -9,6 +9,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -79,68 +80,86 @@ bool FlacFile::decodeFlacFile()
   const etl::span<const uint8_t> data_span(m_file_data.data(), m_file_data.size());
   etl::bit_stream_reader reader(data_span, etl::endian::big);
 
-  const uint32_t flac_marker = 0;
-  reader.read<uint32_t>(32);// NOLINT
+  auto flac_marker = reader.read<uint32_t>(32).value();// NOLINT
 
-  std::string marker_str;
+  std::string flac_marker_str{};
   // NOLINTBEGIN
-  marker_str += static_cast<char>((flac_marker >> 24) & 0xFF);
-  marker_str += static_cast<char>((flac_marker >> 16) & 0xFF);
-  marker_str += static_cast<char>((flac_marker >> 8) & 0xFF);
-  marker_str += static_cast<char>(flac_marker & 0xFF);
+  flac_marker_str += static_cast<char>((flac_marker >> 24) & 0xFF);
+  flac_marker_str += static_cast<char>((flac_marker >> 16) & 0xFF);
+  flac_marker_str += static_cast<char>((flac_marker >> 8) & 0xFF);
+  flac_marker_str += static_cast<char>(flac_marker & 0xFF);
   // NOLINTEND
 
-  std::cout << "FLAC marker: " << marker_str << "\n";
-
-  if (marker_str != "fLaC") {
-    std::cerr << "Invalid FLAC file marker\n";
+  if (flac_marker_str != "fLaC") {
+    std::cerr << "Invalid FLAC marker.\n";
     return false;
   }
 
   // TODO:explicitly check if the first metadata is the `STREAM_INFO`
 
-  /*
   // process an unknown amount of metadata blocks
   while (true) {
-    switch (rem_7_bits) {
+    auto is_last = reader.read<uint8_t>(1).value();
+    auto block_type = reader.read<uint8_t>(7).value();// NOLINT
+    auto block_size = reader.read<uint32_t>(24).value();// NOLINT
+
+    std::cout << "Current metadata block - Last: " << static_cast<int>(is_last)
+              << ", Type: " << static_cast<int>(block_type) << ", Size: " << block_size << "\n";
+
+    switch (static_cast<int>(block_type)) {
     case 0:
       std::cout << "Processin' the stream info header.\n";
-      // decodeStreaminfo(header_size);
+      if (!decodeStreaminfo(reader, block_size)) { return false; }
       break;
     case 1:
-      decodePadding();
+      // decodePadding();
+      std::cout << "Skippin' padding metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 2:
-      decodeApplication();
+      // decodeApplication();
+      std::cout << "Skippin' application metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 3:
-      decodeSeektable();
+      // decodeSeektable();
+      std::cout << "Skippin' seek table metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 4:
-      decodeVorbiscomment();
+      // decodeVorbiscomment();
+      std::cout << "Skippin' vorbis comment metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 5:// NOLINT
-      decodeCuesheet();
+           // decodeCuesheet();
+      std::cout << "Skippin' cue sheet metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 6:// NOLINT
-      decodePicture();
+           // decodePicture();
+      std::cout << "Skippin' picture metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     case 127:// NOLINT
       throw std::runtime_error("This metadata block type is forbidden.\n");
     default:
       std::cerr << "Unsupported/Reserved metadata block.\n";
+      reader.skip(block_size * 8);// NOLINT
       break;
     }
 
-    break;
-    // break if this metadata block is the last one
-    if (first_bit == 1) { break; }
-  }*/
+    if (is_last == 1) {
+      std::cout << "Last metadata block processed.\n";
+      break;
+    }
+  }
 
   return false;
 }
 
-bool FlacFile::decodeStreaminfo([[maybe_unused]] uint32_t header_size, [[maybe_unused]] long position)// NOLINT
+bool FlacFile::decodeStreaminfo([[maybe_unused]] etl::bit_stream_reader &reader,// NOLINT
+  [[maybe_unused]] uint32_t block_size)
 {
   // u(16) -> minimum block size
 

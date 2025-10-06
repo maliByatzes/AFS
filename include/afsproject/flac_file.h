@@ -47,7 +47,7 @@ public:
 private:
   std::vector<uint8_t> m_file_data;
 
-  bool decodeStreaminfo(uint32_t, long);
+  bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t);
   bool decodePadding();
   bool decodeApplication();
   bool decodeSeektable();
