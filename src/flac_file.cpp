@@ -11,6 +11,8 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 // NOTE/TODO: should probably write the implementation somewhere
@@ -120,13 +122,12 @@ bool FlacFile::decodeFlacFile()
       if (!decodeApplication(reader, block_size)) { return false; }
       break;
     case 3:
-      // decodeSeektable();
-      std::cout << "Skippin' seek table metadata block.\n";
-      reader.skip(block_size * 8);// NOLINT
+      std::cout << "Processin' the seektable block.\n";
+      if (!decodeSeektable(reader, block_size)) { return false; }
       break;
     case 4:
-      // decodeVorbiscomment();
-      std::cout << "Skippin' vorbis comment metadata block.\n";
+      std::cout << "Processin' the vorbis comment block.\n";
+      if (!decodeVorbiscomment(reader, block_size)) { return false; }
       reader.skip(block_size * 8);// NOLINT
       break;
     case 5:// NOLINT
@@ -267,9 +268,27 @@ bool FlacFile::decodeApplication(etl::bit_stream_reader &reader, uint32_t block_
   return true;
 }
 
-bool FlacFile::decodeSeektable() { return false; }// NOLINT
+bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_size)
+{
+  uint32_t num_of_seek_points = block_size / 18;// NOLINT
+  std::unordered_map<uint64_t, std::pair<uint64_t, uint16_t>> seek_points;
 
-bool FlacFile::decodeVorbiscomment() { return false; }// NOLINT
+  for (size_t i = 0; i < size_t(num_of_seek_points); ++i) {
+    auto sample_number = reader.read<uint64_t>(64).value();// NOLINT
+
+    if (sample_number == 0xFFFFFFFFFFFFFFFF) { continue; }// NOLINT
+
+    auto offset = reader.read<uint64_t>(64).value();// NOLINT
+    auto num_samples = reader.read<uint16_t>(16).value();// NOLINT
+
+    // TODO: store these if needed, later.
+    seek_points.insert({ sample_number, std::make_pair(offset, num_samples) });
+  }
+
+  return false;
+}
+
+bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, uint32_t block_size) { return false; }
 
 bool FlacFile::decodeCuesheet() { return false; }// NOLINT
 

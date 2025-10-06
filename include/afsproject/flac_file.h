@@ -58,8 +58,8 @@ private:
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
   static bool decodePadding(etl::bit_stream_reader &, uint32_t);
   static bool decodeApplication(etl::bit_stream_reader &, uint32_t);
-  bool decodeSeektable();
-  bool decodeVorbiscomment();
+  static bool decodeSeektable(etl::bit_stream_reader &, uint32_t);
+  static bool decodeVorbiscomment(etl::bit_stream_reader &, uint32_t);
   bool decodeCuesheet();
   bool decodePicture();
 
