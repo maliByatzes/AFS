@@ -108,13 +108,12 @@ bool FlacFile::decodeFlacFile()
 
     switch (static_cast<int>(block_type)) {
     case 0:
-      std::cout << "Processin' the stream info header.\n";
+      std::cout << "Processin' the streaminfo block.\n";
       if (!decodeStreaminfo(reader, block_size, is_last)) { return false; }
       break;
     case 1:
-      // decodePadding();
-      std::cout << "Skippin' padding metadata block.\n";
-      reader.skip(block_size * 8);// NOLINT
+      std::cout << "Processin' the padding block.\n";
+      if (!decodePadding(reader, block_size)) { return false; }
       break;
     case 2:
       // decodeApplication();
@@ -173,9 +172,9 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   // u(20) -> sample rate in Hz
   auto sample_rate = reader.read<uint32_t>(20).value();// NOLINT
   // u(3) -> number of channels - 1
-  auto num_channels = reader.read<uint8_t>(3).value();
+  auto num_channels = static_cast<int>(reader.read<uint8_t>(3).value());
   // u(5) -> bits per sample - 1
-  auto bits_per_samples = reader.read<uint8_t>(5).value();// NOLINT
+  auto bits_per_samples = static_cast<int>(reader.read<uint8_t>(5).value());// NOLINT
   // u(36) -> total number of interchannel samples
   auto total_samples = reader.read<uint64_t>(36).value();// NOLINT
 
@@ -183,6 +182,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   reader.skip(128);// NOLINT
 
   std::cout << "STREAMINFO:\n"
+            << " Block size: " << block_size << "\n"
             << " Min block size: " << min_block_size << "\n"
             << " Max block size: " << max_block_size << "\n"
             << " Min frame size: " << min_frame_size << "\n"
@@ -197,15 +197,17 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
     return false;
   }
 
-  if (is_last == 0) {
-    if (block_size < min_block_size || block_size > max_block_size) {
-      std::cerr << "Invalid block size for not the last frame.\n";
-      return false;
-    }
-  } else if (is_last == 1) {
-    if (block_size > max_block_size) {
-      std::cerr << "Invalid block size for the last frame.\n";
-      return false;
+  if (min_block_size != max_block_size) {
+    if (is_last == 0) {
+      if (block_size < min_block_size || block_size > max_block_size) {
+        std::cerr << "Invalid block size for not the last frame.\n";
+        return false;
+      }
+    } else if (is_last == 1) {
+      if (block_size > max_block_size) {
+        std::cerr << "Invalid block size for the last frame.\n";
+        return false;
+      }
     }
   }
 
@@ -225,13 +227,31 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   }
 
   m_sample_rate = sample_rate;
-  m_num_channels = num_channels;
-  m_bit_depth = bits_per_samples;
+  m_num_channels = uint16_t(num_channels);
+  m_bit_depth = uint16_t(bits_per_samples);
 
   return true;
 }
 
-bool FlacFile::decodePadding() { return false; }// NOLINT
+bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size)
+{
+  uint n = block_size * 8;// NOLINT
+
+  if (n % 8 != 0) {// NOLINT
+    std::cerr << "n is not a multiple of 8: " << n << ".\n";
+    return false;
+  }
+
+  // u(n) -> n "0" bits
+  // auto space = reader.read<uint64_t>(static_cast<uint_least8_t>(n)).value();
+
+  std::cout << "PADDING:\n"
+            << " Space: " << n << "\n";
+
+  reader.skip(n);
+
+  return true;
+}
 
 bool FlacFile::decodeApplication() { return false; }// NOLINT
 
