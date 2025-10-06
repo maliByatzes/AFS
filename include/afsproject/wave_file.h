@@ -55,12 +55,12 @@ public:
   bool load(const std::string &file_path) override;
   [[nodiscard]] bool save(const std::string &file_path) const override;
   [[nodiscard]] std::vector<double> getPCMData() const override;
-  [[nodiscard]] int32_t getSampleRate() const override;
-  [[nodiscard]] int16_t getNumChannels() const override;
+  [[nodiscard]] uint32_t getSampleRate() const override;
+  [[nodiscard]] uint16_t getNumChannels() const override;
   [[nodiscard]] double getDurationSeconds() const override;
   [[nodiscard]] bool isMono() const override;
   [[nodiscard]] bool isStereo() const override;
-  [[nodiscard]] int16_t getBitDepth() const override;
+  [[nodiscard]] uint16_t getBitDepth() const override;
   [[nodiscard]] int getNumSamplesPerChannel() const override;
 
 private:

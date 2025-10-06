@@ -25,6 +25,14 @@ enum class MetadataBlockType : uint8_t {
 
 struct StreamInfo
 {
+  uint16_t min_block_size;
+  uint16_t max_block_size;
+  uint32_t min_frame_size;
+  uint32_t max_frame_size;
+  uint32_t sample_rate;
+  uint8_t num_channels;
+  uint8_t bit_depth;
+  uint64_t total_samples;
 };
 
 class FlacFile : public IAudioFile// NOLINT
@@ -36,18 +44,18 @@ public:
   bool load(const std::string &file_path) override;
   [[nodiscard]] bool save(const std::string &file_path) const override;
   [[nodiscard]] std::vector<double> getPCMData() const override;
-  [[nodiscard]] int32_t getSampleRate() const override;
-  [[nodiscard]] int16_t getNumChannels() const override;
+  [[nodiscard]] uint32_t getSampleRate() const override;
+  [[nodiscard]] uint16_t getNumChannels() const override;
   [[nodiscard]] double getDurationSeconds() const override;
   [[nodiscard]] bool isMono() const override;
   [[nodiscard]] bool isStereo() const override;
-  [[nodiscard]] int16_t getBitDepth() const override;
+  [[nodiscard]] uint16_t getBitDepth() const override;
   [[nodiscard]] int getNumSamplesPerChannel() const override;
 
 private:
   std::vector<uint8_t> m_file_data;
 
-  bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t);
+  bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
   bool decodePadding();
   bool decodeApplication();
   bool decodeSeektable();

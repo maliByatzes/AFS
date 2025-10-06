@@ -1,7 +1,7 @@
-#include <algorithm>
-#include <array>
 #include <afsproject/either.h>
 #include <afsproject/wave_file.h>
+#include <algorithm>
+#include <array>
 #include <bit>
 #include <cassert>
 #include <cmath>
@@ -60,9 +60,9 @@ bool WaveFile::save(const std::string &file_path) const
 
 std::vector<double> WaveFile::getPCMData() const { return m_pcm_data; };
 
-int32_t WaveFile::getSampleRate() const { return m_sample_rate; }
+uint32_t WaveFile::getSampleRate() const { return m_sample_rate; }
 
-int16_t WaveFile::getNumChannels() const { return m_num_channels; }
+uint16_t WaveFile::getNumChannels() const { return m_num_channels; }
 
 double WaveFile::getDurationSeconds() const { return double(getNumSamplesPerChannel()) / double(m_sample_rate); }
 
@@ -70,7 +70,7 @@ bool WaveFile::isMono() const { return getNumChannels() == 1; }
 
 bool WaveFile::isStereo() const { return getNumChannels() == 2; }
 
-int16_t WaveFile::getBitDepth() const { return m_bit_depth; }
+uint16_t WaveFile::getBitDepth() const { return m_bit_depth; }
 
 int WaveFile::getNumSamplesPerChannel() const
 {
@@ -245,10 +245,10 @@ bool WaveFile::decodeWaveFile()
     return false;
   }
 
-  m_sample_rate = fmt_chunk.sample_rate;
-  m_bit_depth = fmt_chunk.bit_depth;
-  m_num_channels = fmt_chunk.n_channels;
-  m_format_tag = fmt_chunk.format_tag;
+  m_sample_rate = uint32_t(fmt_chunk.sample_rate);
+  m_bit_depth = uint16_t(fmt_chunk.bit_depth);
+  m_num_channels = uint16_t(fmt_chunk.n_channels);
+  m_format_tag = uint16_t(fmt_chunk.format_tag);
 
   return decodeSamples(fmt_chunk, data_chunk);
 }
@@ -330,17 +330,17 @@ void WaveFile::encodeFmtChunk(std::vector<uint8_t> &data) const
   // cksize	4	Chunk size: 16, 18 or 40
   addInt32ToData(data, fmt_ck_size);
   // wFormatTag	2	Format code
-  addInt16ToData(data, m_format_tag);
+  addInt16ToData(data, int16_t(m_format_tag));
   // nChannels	2	Number of interleaved channels
-  addInt16ToData(data, getNumChannels());
+  addInt16ToData(data, int16_t(getNumChannels()));
   // 	nSamplesPerSec	4	Sampling rate (blocks per second)
-  addInt32ToData(data, m_sample_rate);
+  addInt32ToData(data, int32_t(m_sample_rate));
   // nAvgBytesPerSec	4	Data rate
-  addInt32ToData(data, m_sample_rate * (m_bit_depth / 8) * getNumChannels());// NOLINT
+  addInt32ToData(data, int32_t(m_sample_rate * (m_bit_depth / 8) * getNumChannels()));// NOLINT
   // nBlockAlign	2	Data block size (bytes)
-  addInt16ToData(data, (m_bit_depth / 8) * getNumChannels());// NOLINT
+  addInt16ToData(data, int16_t((m_bit_depth / 8) * getNumChannels()));// NOLINT
   // wBitsPerSample	2	Bits per sample
-  addInt16ToData(data, m_bit_depth);
+  addInt16ToData(data, int16_t(m_bit_depth));
 }
 
 void WaveFile::encodeDataChunk(std::vector<uint8_t> &data) const

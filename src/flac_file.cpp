@@ -54,9 +54,9 @@ bool FlacFile::save([[maybe_unused]] const std::string &file_path) const { retur
 
 std::vector<double> FlacFile::getPCMData() const { return m_pcm_data; }
 
-int32_t FlacFile::getSampleRate() const { return m_sample_rate; }
+uint32_t FlacFile::getSampleRate() const { return m_sample_rate; }
 
-int16_t FlacFile::getNumChannels() const { return m_num_channels; }
+uint16_t FlacFile::getNumChannels() const { return m_num_channels; }
 
 double FlacFile::getDurationSeconds() const { return double(getNumSamplesPerChannel()) / double(m_sample_rate); }
 
@@ -64,7 +64,7 @@ bool FlacFile::isMono() const { return getNumChannels() == 1; }
 
 bool FlacFile::isStereo() const { return getNumChannels() == 2; }
 
-int16_t FlacFile::getBitDepth() const { return m_bit_depth; }
+uint16_t FlacFile::getBitDepth() const { return m_bit_depth; }
 
 int FlacFile::getNumSamplesPerChannel() const
 {
@@ -109,7 +109,7 @@ bool FlacFile::decodeFlacFile()
     switch (static_cast<int>(block_type)) {
     case 0:
       std::cout << "Processin' the stream info header.\n";
-      if (!decodeStreaminfo(reader, block_size)) { return false; }
+      if (!decodeStreaminfo(reader, block_size, is_last)) { return false; }
       break;
     case 1:
       // decodePadding();
@@ -158,8 +158,7 @@ bool FlacFile::decodeFlacFile()
   return false;
 }
 
-bool FlacFile::decodeStreaminfo([[maybe_unused]] etl::bit_stream_reader &reader,// NOLINT
-  [[maybe_unused]] uint32_t block_size)
+bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_size, uint8_t is_last)// NOLINT
 {
   if (block_size != 34) { std::cerr << "Invalid STREAMINFO block size: " << block_size << " (expected 34)\n"; }// NOLINT
 
@@ -192,6 +191,42 @@ bool FlacFile::decodeStreaminfo([[maybe_unused]] etl::bit_stream_reader &reader,
             << " Channels: " << num_channels << "\n"
             << " Bits per sample: " << bits_per_samples << "\n"
             << " Total samples: " << total_samples << "\n";
+
+  if (min_block_size < 16 || max_block_size < 16 || min_block_size > max_block_size) {// NOLINT
+    std::cerr << "Invalid minimum/maxmimum block sizes.\n";
+    return false;
+  }
+
+  if (is_last == 0) {
+    if (block_size < min_block_size || block_size > max_block_size) {
+      std::cerr << "Invalid block size for not the last frame.\n";
+      return false;
+    }
+  } else if (is_last == 1) {
+    if (block_size > max_block_size) {
+      std::cerr << "Invalid block size for the last frame.\n";
+      return false;
+    }
+  }
+
+  if (sample_rate == 0) {
+    std::cerr << "Invalid sample rate: " << sample_rate << ".\n";
+    return false;
+  }
+
+  if (num_channels < 1 || num_channels > 8) {// NOLINT
+    std::cerr << "Invalid number of channels: " << num_channels << ".\n";
+    return false;
+  }
+
+  if (bits_per_samples < 4 || bits_per_samples > 32) {// NOLINT
+    std::cerr << "Invalid bits per samples (bit depth): " << bits_per_samples << ".\n";
+    return false;
+  }
+
+  m_sample_rate = sample_rate;
+  m_num_channels = num_channels;
+  m_bit_depth = bits_per_samples;
 
   return true;
 }

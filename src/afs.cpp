@@ -63,7 +63,7 @@ void AFS::applyLowPassFilter(IAudioFile &audio_file)
   std::vector<double> pcm_data = audio_file.getPCMData();
 
   const nc::NdArray<double> ys(pcm_data.begin(), pcm_data.end());
-  Wave wave(ys, audio_file.getSampleRate());
+  Wave wave(ys, int(audio_file.getSampleRate()));
 
   Spectrum spectrum = wave.makeSpectrum();
   spectrum.lowPass(5000);// NOLINT
@@ -88,7 +88,7 @@ void AFS::downSampling(IAudioFile &audio_file)
   }
 }
 
-void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteDB &db) // NOLINT
+void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteDB &db)// NOLINT
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);
