@@ -82,6 +82,7 @@ std::string determinePictureTypeStr(uint32_t);
 uint32_t determineBlockSize(int);
 uint32_t determineSampleRate(int);
 uint16_t determineChannels(int);
+uint16_t determineBitDepth(int);
 
 }// namespace afs
 

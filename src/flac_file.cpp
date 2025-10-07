@@ -519,6 +519,10 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   uint16_t num_channels = determineChannels(channel_bits);
+
+  // u(3) -> bit depth bits
+  auto bit_depth_bits = static_cast<int>(reader.read<uint8_t>(3).value());
+  uint16_t bit_depth = determineBitDepth(bit_depth_bits);
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
@@ -727,6 +731,44 @@ uint16_t determineChannels(int channel_bits)
   // NOLINTEND
 
   return channels;
+}
+
+uint16_t determineBitDepth(int bit_depth_bits)
+{
+  uint16_t bit_depth{};
+
+  // NOLINTBEGIN
+  switch (bit_depth_bits) {
+  case 0:
+    std::cout << "Bit depth is stored in the streaminfo metadata block.\n";
+    break;
+  case 1:
+    bit_depth = 8;
+    break;
+  case 2:
+    bit_depth = 12;
+    break;
+  case 3:
+    std::cerr << "Reserved space for bit depth bits.\n";
+    break;
+  case 4:
+    bit_depth = 16;
+    break;
+  case 5:
+    bit_depth = 20;
+    break;
+  case 6:
+    bit_depth = 24;
+    break;
+  case 7:
+    bit_depth = 32;
+    break;
+  default:
+    std::runtime_error("Unsupported bit depth bits.\n");
+  }
+  // NOLINTEND
+
+  return bit_depth;
 }
 
 }// namespace afs
