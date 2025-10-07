@@ -518,6 +518,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  uint16_t num_channels = determineChannels(channel_bits);
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
@@ -684,4 +685,48 @@ uint32_t determineSampleRate(int sample_rate_bits)
 
   return sample_rate;
 }
+
+uint16_t determineChannels(int channel_bits)
+{
+  uint16_t channels{};
+
+  // NOLINTBEGIN
+  switch (channel_bits) {
+  case 0:
+    channels = 1;
+    break;
+  case 1:
+    channels = 2;
+    break;
+  case 2:
+    channels = 3;
+    break;
+  case 3:
+    channels = 4;
+    break;
+  case 4:
+    channels = 5;
+    break;
+  case 5:
+    channels = 6;
+    break;
+  case 6:
+    channels = 7;
+    break;
+  case 7:
+    channels = 8;
+    break;
+  case 8:
+  case 9:
+  case 10:
+    channels = 2;
+    break;
+  default:
+    throw std::runtime_error("Reserved channel bits.\n");
+  }
+  // NOLINTEND
+
+  return channels;
+}
+
 }// namespace afs
