@@ -332,6 +332,8 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
       const std::string tag = field.substr(0, equals_pos);
       const std::string value = field.substr(equals_pos + 1);
       std::cout << "\t" << tag << " = " << value << "\n";
+
+      if (tag == "WAVEFORMATEXTENSIBLE_CHANNEL_MASK") { m_channel_mask = static_cast<uint32_t>(std::stoi(value)); }
     } else {
       std::cout << "\t" << field << "\n";
     }

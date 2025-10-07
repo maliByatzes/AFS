@@ -54,12 +54,13 @@ public:
 
 private:
   std::vector<uint8_t> m_file_data;
+  uint32_t m_channel_mask;
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
   static bool decodePadding(etl::bit_stream_reader &, uint32_t);
   static bool decodeApplication(etl::bit_stream_reader &, uint32_t);
   static bool decodeSeektable(etl::bit_stream_reader &, uint32_t);
-  static bool decodeVorbiscomment(etl::bit_stream_reader &, uint32_t);
+  bool decodeVorbiscomment(etl::bit_stream_reader &, uint32_t);
   bool decodeCuesheet();
   bool decodePicture();
 
