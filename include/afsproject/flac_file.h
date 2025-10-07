@@ -61,8 +61,8 @@ private:
   static bool decodeApplication(etl::bit_stream_reader &, uint32_t);
   static bool decodeSeektable(etl::bit_stream_reader &, uint32_t);
   bool decodeVorbiscomment(etl::bit_stream_reader &, uint32_t);
-  bool decodeCuesheet();
-  bool decodePicture();
+  static bool decodeCuesheet(etl::bit_stream_reader &, uint32_t);
+  static bool decodePicture(etl::bit_stream_reader &, uint32_t);
 
   bool decodeFlacFile();
 
@@ -72,6 +72,7 @@ private:
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
 std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
 
+std::string derteminePictureTypeStr(uint32_t);
 
 }// namespace afs
 

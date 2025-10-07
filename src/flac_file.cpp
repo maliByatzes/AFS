@@ -115,7 +115,7 @@ bool FlacFile::decodeFlacFile()
       break;
     case 1:
       std::cout << "Processin' the padding block.\n";
-      if (!decodePadding(reader, block_size)) { return false; }
+      decodePadding(reader, block_size);
       break;
     case 2:
       std::cout << "Processin' the application block.\n";
@@ -128,17 +128,14 @@ bool FlacFile::decodeFlacFile()
     case 4:
       std::cout << "Processin' the vorbis comment block.\n";
       if (!decodeVorbiscomment(reader, block_size)) { return false; }
-      reader.skip(block_size * 8);// NOLINT
       break;
     case 5:// NOLINT
-           // decodeCuesheet();
-      std::cout << "Skippin' cue sheet metadata block.\n";
-      reader.skip(block_size * 8);// NOLINT
+      std::cout << "Processin' the cue sheet block.\n";
+      if (!decodeCuesheet(reader, block_size)) { return false; }
       break;
     case 6:// NOLINT
-           // decodePicture();
-      std::cout << "Skippin' picture metadata block.\n";
-      reader.skip(block_size * 8);// NOLINT
+      std::cout << "Processin' the picture block.\n";
+      if (!decodePicture(reader, block_size)) { return false; }
       break;
     case 127:// NOLINT
       throw std::runtime_error("This metadata block type is forbidden.\n");
@@ -273,6 +270,10 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
   uint32_t num_of_seek_points = block_size / 18;// NOLINT
   std::unordered_map<uint64_t, std::pair<uint64_t, uint16_t>> seek_points;
 
+  std::cout << "SEEKTABLE:\n";
+  std::cout << " Number of seek points: " << num_of_seek_points << "\n";
+
+  std::cout << " Seek points:\n";
   for (size_t i = 0; i < size_t(num_of_seek_points); ++i) {
     auto sample_number = reader.read<uint64_t>(64).value();// NOLINT
 
@@ -281,11 +282,14 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
     auto offset = reader.read<uint64_t>(64).value();// NOLINT
     auto num_samples = reader.read<uint16_t>(16).value();// NOLINT
 
+    std::cout << "\tSeekpoint " << i << ": sample=" << sample_number << ", offset=" << offset
+              << ", samples=" << num_samples << "\n";
+
     // TODO: store these if needed, later.
     seek_points.insert({ sample_number, std::make_pair(offset, num_samples) });
   }
 
-  return false;
+  return true;
 }
 
 bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unused]] uint32_t block_size)
@@ -339,12 +343,152 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
     }
   }
 
-  return false;
+  return true;
 }
 
-bool FlacFile::decodeCuesheet() { return false; }// NOLINT
+bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] uint32_t block_size)
+{
+  // u(128 * 8) -> media catalog number (ASCII)
+  std::string media_catalog_number;
+  media_catalog_number.reserve(128);// NOLINT
+  for (int i = 0; i < 128; ++i) {// NOLINT
+    auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    if (chr != 0) { media_catalog_number += static_cast<char>(chr); }
+  }
 
-bool FlacFile::decodePicture() { return false; }// NOLINT
+  std::cout << "CUESHEET:\n";
+  std::cout << " Media catalog number: " << media_catalog_number << "\n";
+
+  // u(64) -> number of lead-in samples
+  auto num_lead_in = reader.read<uint64_t>(64).value();// NOLINT
+  std::cout << " Number of lead-in samples: " << num_lead_in << "\n";
+
+  // u(1) -> if the cuesheet corresponds to CD-DA
+  auto is_cd = static_cast<int>(reader.read<uint8_t>(1).value());
+  std::cout << " Does cuesheet corresponds to CD-DA: " << (is_cd == 1 ? "yes" : "no") << "\n";
+
+  // u(7 + 258 * 8) -> reserved (Skip)
+  reader.skip(2071);// NOLINT
+
+  // u(8) -> number of tracks in this cuesheet
+  auto num_tracks = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+  std::cout << " Number of tracks: " << num_tracks << "\n";
+
+  std::cout << " Tracks:\n";
+  // cuesheet tracks
+  for (int i = 0; i < num_tracks; ++i) {
+    // u(64) -> track offset
+    auto track_offset = reader.read<uint64_t>(64).value();// NOLINT
+    std::cout << "\tTrack offset: " << track_offset << "\n";
+
+    // u(8) -> track number
+    auto track_number = reader.read<uint8_t>(8).value();// NOLINT
+    std::cout << "\tTrack number: " << static_cast<int>(track_number) << "\n";
+
+    // u(12 * 8) -> track ISRC
+    std::string track_isrc;
+    for (int j = 0; j < 12; ++j) {// NOLINT
+      auto chr = reader.read<uint8_t>(8).value();// NOLINT
+      if (chr != 0) { track_isrc += static_cast<char>(chr); }
+    }
+    std::cout << "\tTrack ISRC: " << track_isrc << "\n";
+  }
+
+  // u(1) -> track type
+  auto track_type = static_cast<int>(reader.read<uint8_t>(1).value());
+  std::cout << "\tTrack type: " << (track_type == 0 ? "audio" : "non-audio") << "\n";
+
+  // u(1) -> pre-emphasis flag
+  auto pre_emphasis_flag = static_cast<int>(reader.read<uint8_t>(1).value());
+  std::cout << "\tPre-emphasis flag: " << (pre_emphasis_flag == 0 ? "no pre-emphasis" : "pre-emphasis") << "\n";
+
+  // u(6 + 13 * 8) -> reserved (Skip)
+  reader.skip(110);// NOLINT
+
+  // u(8) -> number of track index points
+  auto num_indices = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+  std::cout << "\tNumber of track index points: " << num_indices << "\n";
+
+  // index points
+  std::cout << "\tIndex points:\n";
+  for (int j = 0; j < num_indices; ++j) {
+    // u(64) -> offset in samples
+    auto index_offset = reader.read<uint64_t>(64).value();// NOLINT
+
+    // u(8) -> track index point number
+    auto index_number = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+
+    // u(3 * 8) -> reserved (skip)
+    reader.skip(24);// NOLINT
+
+    std::cout << "\t\tIndex " << index_number << ": offset " << index_offset << " samples\n";
+  }
+
+  return true;
+}
+
+bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] uint32_t block_size)
+{
+  // u(32) -> picture type
+  auto picture_type = reader.read<uint32_t>(32).value();// NOLINT
+  const std::string picture_type_str = derteminePictureTypeStr(picture_type);
+
+  std::cout << "PICTURE:\n"
+            << " Picture Type: " << picture_type << " (" << picture_type_str << ")\n";
+
+  // u(32) -> length of media type string in bytes.
+  auto mime_length = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Mime length: " << mime_length << "\n";
+
+  // u(n * 8) -> media type string
+  std::string mime_type;
+  mime_type.reserve(mime_length);
+  for (uint32_t i = 0; i < mime_length; ++i) {
+    auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    mime_type += static_cast<char>(chr);
+  }
+
+  std::cout << " Mime type: " << mime_type << "\n";
+
+  // u(32) -> length of description string
+  auto desc_length = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Description length: " << desc_length << "\n";
+
+  // u(n * 8) -> description string
+  std::string description;
+  description.reserve(desc_length);
+  for (uint32_t i = 0; i < desc_length; ++i) {
+    auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    description += static_cast<char>(chr);
+  }
+  std::cout << " Description: " << description << "\n";
+
+  // u(32) -> picture width
+  auto width = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Picture width: " << width << "\n";
+
+  // u(32) -> picture height
+  auto height = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Picture height: " << height << "\n";
+
+  // u(32) -> color depth
+  auto color_depth = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Color depth: " << color_depth << "\n";
+
+  // u(32) -> number of colors
+  auto num_colors = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Number of colors used: " << num_colors << "\n";
+
+  // u(32) -> length of picture data
+  auto data_length = reader.read<uint32_t>(32).value();// NOLINT
+  std::cout << " Length of picture data: " << data_length << "\n";
+
+  // u(n * 8) -> binary picture data
+  // NOTE: skip it for now, we could encode the data to a picture we can view.
+  reader.skip(data_length * 8);// NOLINT
+
+  return true;
+}
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
@@ -365,6 +509,81 @@ std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &bits, si
   auto shifted = bits >> lsb_pos;
   std::bitset<THIRTY_TWO> mask((1 << k) - size_t(1));// NOLINT
   return shifted & mask;
+}
+
+std::string derteminePictureTypeStr(uint32_t picture_type)
+{
+  std::string picture_type_str = "Unknown";
+
+  // NOLINTBEGIN
+  switch (picture_type) {
+  case 0:
+    picture_type_str = "Other";
+    break;
+  case 1:
+    picture_type_str = "PNG file icon of 32x32 pixels";
+    break;
+  case 2:
+    picture_type_str = "General file icon";
+    break;
+  case 3:
+    picture_type_str = "Front cover";
+    break;
+  case 4:
+    picture_type_str = "Back cover";
+    break;
+  case 5:
+    picture_type_str = "Liner notes page";
+    break;
+  case 6:
+    picture_type_str = "Media label";
+    break;
+  case 7:
+    picture_type_str = "Lead artist";
+    break;
+  case 8:
+    picture_type_str = "Artist or performer";
+    break;
+  case 9:
+    picture_type_str = "Conductor";
+    break;
+  case 10:
+    picture_type_str = "Band or orchestra";
+    break;
+  case 11:
+    picture_type_str = "Composer";
+    break;
+  case 12:
+    picture_type_str = "Lyricist or text writer";
+    break;
+  case 13:
+    picture_type_str = "Recording location";
+    break;
+  case 14:
+    picture_type_str = "During recording";
+    break;
+  case 15:
+    picture_type_str = "During performance";
+    break;
+  case 16:
+    picture_type_str = "Movie or video screen capture";
+    break;
+  case 17:
+    picture_type_str = "A bright colored fish";
+    break;
+  case 18:
+    picture_type_str = "Illustration";
+    break;
+  case 19:
+    picture_type_str = "Band or artist logotype";
+    break;
+  case 20:
+    picture_type_str = "Publisher or studio logotype";
+    break;
+  }
+  // NOLINTEND
+
+  return picture_type_str;
 }
 
 }// namespace afs
