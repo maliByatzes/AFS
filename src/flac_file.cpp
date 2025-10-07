@@ -435,7 +435,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 {
   // u(32) -> picture type
   auto picture_type = reader.read<uint32_t>(32).value();// NOLINT
-  const std::string picture_type_str = derteminePictureTypeStr(picture_type);
+  const std::string picture_type_str = determinePictureTypeStr(picture_type);
 
   std::cout << "PICTURE:\n"
             << " Picture Type: " << picture_type << " (" << picture_type_str << ")\n";
@@ -510,13 +510,14 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   auto strategy_bit = static_cast<int>(reader.read<uint8_t>(1).value());// NOLINT
   // u(4) -> block size bits
   auto block_size_bits = static_cast<int>(reader.read<uint8_t>(4).value());
-  uint32_t block_size = dertemineBlockSize(block_size_bits);
+  uint32_t block_size = determineBlockSize(block_size_bits);
 
   // u(4) -> sample rate bits
   auto sample_rate_bits = static_cast<int>(reader.read<uint8_t>(4).value());
-  uint32_t sample_rate = dertemineSampleRate(sample_rate_bits);
+  uint32_t sample_rate = determineSampleRate(sample_rate_bits);
 
   // u(4) -> channel bits
+  auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
@@ -540,7 +541,7 @@ std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &bits, si
   return shifted & mask;
 }
 
-std::string derteminePictureTypeStr(uint32_t picture_type)
+std::string determinePictureTypeStr(uint32_t picture_type)
 {
   std::string picture_type_str = "Unknown";
 
@@ -615,7 +616,7 @@ std::string derteminePictureTypeStr(uint32_t picture_type)
   return picture_type_str;
 }
 
-uint32_t dertemineBlockSize(int block_size_bits)
+uint32_t determineBlockSize(int block_size_bits)
 {
   uint32_t block_size{};
 
@@ -632,7 +633,7 @@ uint32_t dertemineBlockSize(int block_size_bits)
 
   return block_size;
 }
-uint32_t dertemineSampleRate(int sample_rate_bits)
+uint32_t determineSampleRate(int sample_rate_bits)
 {
   uint32_t sample_rate{};
 

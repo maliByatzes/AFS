@@ -78,9 +78,9 @@ private:
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
 std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
 
-std::string derteminePictureTypeStr(uint32_t);
-uint32_t dertemineBlockSize(int);
-uint32_t dertemineSampleRate(int);
+std::string determinePictureTypeStr(uint32_t);
+uint32_t determineBlockSize(int);
+uint32_t determineSampleRate(int);
 
 }// namespace afs
 
