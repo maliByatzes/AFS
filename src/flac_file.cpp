@@ -1,6 +1,7 @@
 #include <afsproject/flac_file.h>
 #include <bitset>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <etl/bit_stream.h>
@@ -151,7 +152,10 @@ bool FlacFile::decodeFlacFile()
     }
   }
 
-  return false;
+  // decode frames
+  decodeFrames(reader);
+
+  return true;
 }
 
 bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_size, uint8_t is_last)// NOLINT
@@ -490,6 +494,31 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
   return true;
 }
 
+bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
+{
+  // frame header
+  decodeFrameHeader(reader);
+
+  return true;
+}
+
+bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
+{
+  // u(15) -> frame sync code
+  auto frame_sync_code = reader.read<uint16_t>(15).value();// NOLINT
+  // u(1) -> blocking strategy bit
+  auto strategy_bit = static_cast<int>(reader.read<uint8_t>(1).value());// NOLINT
+  // u(4) -> block size bits
+  auto block_size_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  uint32_t block_size = dertemineBlockSize(block_size_bits);
+
+  // u(4) -> sample rate bits
+  auto sample_rate_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  uint32_t sample_rate = dertemineSampleRate(sample_rate_bits);
+
+  // u(4) -> channel bits
+}
+
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
 /*
@@ -586,4 +615,72 @@ std::string derteminePictureTypeStr(uint32_t picture_type)
   return picture_type_str;
 }
 
+uint32_t dertemineBlockSize(int block_size_bits)
+{
+  uint32_t block_size{};
+
+  if (block_size_bits == 0) {
+    std::string msg{ "Invalid block size bits (reserved)\n" };
+    throw std::runtime_error(msg);
+  } else if (block_size_bits == 1) {
+    block_size = 192;// NOLINT
+  } else if (block_size_bits >= 2 && block_size_bits <= 5) {// NOLINT
+    block_size = static_cast<uint32_t>(144 * (std::pow(2, block_size_bits)));// NOLINT
+  } else if (block_size_bits >= 8 && block_size_bits <= 15) {// NOLINT
+    block_size = static_cast<uint32_t>(std::pow(2, block_size_bits));
+  }
+
+  return block_size;
+}
+uint32_t dertemineSampleRate(int sample_rate_bits)
+{
+  uint32_t sample_rate{};
+
+  // NOLINTBEGIN
+  switch (sample_rate_bits) {
+  case 0:
+    std::cout << "Sample rate is stored in the streaminfo metadata block.\n";
+    break;
+  case 1:
+    sample_rate = 88'200;
+    break;
+  case 2:
+    sample_rate = 176'400;
+    break;
+  case 3:
+    sample_rate = 192'000;
+    break;
+  case 4:
+    sample_rate = 8'000;
+    break;
+  case 5:
+    sample_rate = 16'000;
+    break;
+  case 6:
+    sample_rate = 22'050;
+    break;
+  case 7:
+    sample_rate = 24'000;
+    break;
+  case 8:
+    sample_rate = 32'000;
+    break;
+  case 9:
+    sample_rate = 44'100;
+    break;
+  case 10:
+    sample_rate = 48'000;
+    break;
+  case 11:
+    sample_rate = 96'000;
+    break;
+  case 15:
+    throw std::runtime_error("Sample rate bits are forbidden.\n");
+  default:
+    throw std::runtime_error("Unsupported sample rate bits.\n");
+  }
+  // NOLINTEND
+
+  return sample_rate;
+}
 }// namespace afs

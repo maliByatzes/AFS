@@ -55,6 +55,7 @@ public:
 private:
   std::vector<uint8_t> m_file_data;
   uint32_t m_channel_mask;
+  // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
   static bool decodePadding(etl::bit_stream_reader &, uint32_t);
@@ -63,6 +64,11 @@ private:
   bool decodeVorbiscomment(etl::bit_stream_reader &, uint32_t);
   static bool decodeCuesheet(etl::bit_stream_reader &, uint32_t);
   static bool decodePicture(etl::bit_stream_reader &, uint32_t);
+
+  bool decodeFrames(etl::bit_stream_reader &);
+  bool decodeFrameHeader(etl::bit_stream_reader &);
+  bool decodeFrameSubframes(etl::bit_stream_reader &);
+  bool decodeFrameFooter(etl::bit_stream_reader &);
 
   bool decodeFlacFile();
 
@@ -73,6 +79,8 @@ std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t
 std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
 
 std::string derteminePictureTypeStr(uint32_t);
+uint32_t dertemineBlockSize(int);
+uint32_t dertemineSampleRate(int);
 
 }// namespace afs
 
