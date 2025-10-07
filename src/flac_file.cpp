@@ -288,7 +288,57 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
   return false;
 }
 
-bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, uint32_t block_size) { return false; }
+bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unused]] uint32_t block_size)
+{
+  // 4 bytes of vendor string length (little endian)
+  auto temp_str_len = reader.read<uint32_t>(32).value();// NOLINT
+  uint32_t vendor_str_len = ((temp_str_len >> 24) & 0xFF) | ((temp_str_len >> 16) & 0xFF)// NOLINT
+                            | ((temp_str_len >> 8) & 0xFF)// NOLINT
+                            | (temp_str_len & 0xFF);// NOLINT
+
+  std::string vendor_str;
+  vendor_str.reserve(vendor_str_len);
+  for (uint32_t i = 0; i < vendor_str_len; ++i) {
+    auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    vendor_str += static_cast<char>(chr);
+  }
+
+  std::cout << "VORBIS COMMENT:\n";
+  std::cout << "Vendor: " << vendor_str << "\n";
+
+  // 4 bytes -> number of fields (little endian)
+  auto temp_num_fields = reader.read<uint32_t>(32).value();// NOLINT
+  uint32_t num_of_fields = ((temp_num_fields >> 24) & 0xFF) | ((temp_num_fields >> 16) & 0xFF)// NOLINT
+                           | ((temp_num_fields >> 8) & 0xFF) | (temp_num_fields & 0xFF);// NOLINT
+
+  std::cout << "number of fields: " << num_of_fields << "\n";
+
+  for (uint32_t i = 0; i < num_of_fields; ++i) {
+    // 4 bytes -> comment/field length (little endian)
+    auto temp_field_len = reader.read<uint32_t>(32).value();// NOLINT
+    uint32_t field_len = ((temp_field_len >> 24) & 0xFF) | ((temp_field_len >> 16) & 0xFF)// NOLINT
+                         | ((temp_field_len >> 8) & 0xFF) | (temp_field_len & 0xFF);// NOLINT
+    std::cout << "field length: " << field_len << "\n";
+
+    std::string field;
+    field.reserve(field_len);
+    for (uint32_t j = 0; j < field_len; ++j) {
+      auto chr = reader.read<uint8_t>(8).value();// NOLINT
+      field += static_cast<char>(chr);
+    }
+
+    const size_t equals_pos = field.find('=');
+    if (equals_pos != std::string::npos) {
+      const std::string tag = field.substr(0, equals_pos);
+      const std::string value = field.substr(equals_pos + 1);
+      std::cout << "\t" << tag << " = " << value << "\n";
+    } else {
+      std::cout << "\t" << field << "\n";
+    }
+  }
+
+  return false;
+}
 
 bool FlacFile::decodeCuesheet() { return false; }// NOLINT
 
