@@ -66,6 +66,7 @@ private:
   static bool decodePicture(etl::bit_stream_reader &, uint32_t);
 
   bool decodeFrames(etl::bit_stream_reader &);
+  bool decodeFrame(etl::bit_stream_reader &);
   bool decodeFrameHeader(etl::bit_stream_reader &);
   bool decodeFrameSubframes(etl::bit_stream_reader &);
   bool decodeFrameFooter(etl::bit_stream_reader &);

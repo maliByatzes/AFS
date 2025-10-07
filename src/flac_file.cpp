@@ -496,18 +496,53 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 
 bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 {
-  // frame header
-  decodeFrameHeader(reader);
+  std::cout << "Decoding frames...\n";
+  bool is_last = true;
+
+  while (is_last) {
+    try {
+      if (!decodeFrame(reader)) {
+        std::cerr << "Failed to decode frame.\n";
+        return false;
+      }
+      is_last = false;// NOTE: temp control
+    } catch (const std::exception &e) {
+      std::cerr << "Exception while decoding frame: " << e.what() << "\n";
+      return false;
+    }
+  }
+
+  std::cout << "Successfully decoded all frames.\n";
+
+  return true;
+}
+
+bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
+{
+  // decode frame header
+  if (!decodeFrameHeader(reader)) { return false; }// NOLINT
+
+  // TODO: decode subframes for each channel
+  // TODO: read frame footer
 
   return true;
 }
 
 bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 {
-  // u(15) -> frame sync code
+  std::cout << " Decoding frame header.\n";
+  // u(15) -> frame sync code (0b111111111111100)
   auto frame_sync_code = reader.read<uint16_t>(15).value();// NOLINT
+  if (frame_sync_code != 0x7ffe) {// NOLINT
+    std::cerr << "Invalid frame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
+    return false;
+  }
+  std::cout << "\tFrame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
+
   // u(1) -> blocking strategy bit
   auto strategy_bit = static_cast<int>(reader.read<uint8_t>(1).value());// NOLINT
+  std::cout << "\tBlocking strategy: " << (strategy_bit == 0 ? "fixed" : "variable") << "\n";
+
   // u(4) -> block size bits
   auto block_size_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   uint32_t block_size = determineBlockSize(block_size_bits);
@@ -516,13 +551,64 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   auto sample_rate_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   uint32_t sample_rate = determineSampleRate(sample_rate_bits);
 
+  if (sample_rate == 0) { sample_rate = m_sample_rate; }
+
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   uint16_t num_channels = determineChannels(channel_bits);
+  std::cout << "\tNum of channels: " << num_channels << " (" << channel_bits << ")\n";
 
   // u(3) -> bit depth bits
   auto bit_depth_bits = static_cast<int>(reader.read<uint8_t>(3).value());
   uint16_t bit_depth = determineBitDepth(bit_depth_bits);
+
+  if (bit_depth == 0) { bit_depth = m_bit_depth; }
+
+  std::cout << "\tBit depth: " << bit_depth << " (" << bit_depth_bits << ")\n";
+
+  // u(1) -> reserved bit
+  auto reserved_bit = static_cast<int>(reader.read<uint8_t>(1).value());
+  if (reserved_bit != 0) {
+    std::cerr << "\tReserved bit is not 0.\n";
+    return false;
+  }
+
+  // UTF-8 coded sampl/frame number (coded number)
+  uint64_t coded_number = 0;
+  if (strategy_bit == 0) {
+    // fixed
+    coded_number = readUTF8(reader);
+    std::cout << "\tFrame number: " << coded_number << "\n";
+  } else {
+    // variable
+    coded_number = readUTF8(reader);
+    std::cout << "\tSample number: " << coded_number << "\n";
+  }
+
+  // NOLINTBEGIN
+  if (block_size_bits == 6) {
+    block_size = reader.read<uint8_t>(8).value() + 1;
+  } else if (block_size_bits == 7) {
+    block_size = reader.read<uint16_t>(16).value() + 1;
+  }
+  std::cout << "\tBlock size: " << block_size << " (" << block_size_bits << ")\n";
+
+  if (sample_rate_bits == 12) {
+    sample_rate = reader.read<uint8_t>(8).value() * 1000;
+  } else if (sample_rate_bits == 13) {
+    sample_rate = reader.read<uint16_t>(16).value();
+  } else if (sample_rate_bits == 14) {
+    sample_rate = reader.read<uint16_t>(16).value() * 10;
+  }
+  // NOLINTEND
+  std::cout << "\tSample rate: " << sample_rate << " (" << sample_rate_bits << ")\n";
+
+  // u(8) -> CRC-8 of the frame header
+  auto crc8 = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+
+  std::cout << "\tCRC-8: 0x" << std::hex << crc8 << std::dec << "\n";
+
+  return true;
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
