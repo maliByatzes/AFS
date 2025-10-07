@@ -1,12 +1,12 @@
 #include <afsproject/flac_file.h>
 #include <bitset>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <etl/bit_stream.h>
 #include <etl/endianness.h>
 #include <etl/span.h>
+#include <exception>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -153,9 +153,7 @@ bool FlacFile::decodeFlacFile()
   }
 
   // decode frames
-  decodeFrames(reader);
-
-  return true;
+  return decodeFrames(reader);
 }
 
 bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_size, uint8_t is_last)// NOLINT
@@ -555,7 +553,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
-  uint16_t num_channels = determineChannels(channel_bits);
+  const uint16_t num_channels = determineChannels(channel_bits);
   std::cout << "\tNum of channels: " << num_channels << " (" << channel_bits << ")\n";
 
   // u(3) -> bit depth bits
@@ -613,6 +611,48 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
+// NOLINTBEGIN
+uint64_t FlacFile::readUTF8(etl::bit_stream_reader &reader)
+{
+  // FIXME: still dont quite understand may contain bugs
+  auto first_byte = reader.read<uint8_t>(8).value();
+
+  uint64_t result = 0;
+  int num_bytes = 0;
+
+  if ((first_byte & 0x80) == 0) {
+    return first_byte;
+  } else if ((first_byte & 0xE0) == 0xC0) {
+    result = first_byte & 0x1F;
+    num_bytes = 1;
+  } else if ((first_byte & 0xF0) == 0xE0) {
+    result = first_byte & 0x0F;
+    num_bytes = 2;
+  } else if ((first_byte & 0xF8) == 0xF0) {
+    result = first_byte & 0x07;
+    num_bytes = 3;
+  } else if ((first_byte & 0xFC) == 0xF8) {
+    result = first_byte & 0x03;
+    num_bytes = 4;
+  } else if ((first_byte & 0xFE) == 0xFC) {
+    result = first_byte & 0x01;
+    num_bytes = 5;
+  } else if (first_byte == 0xFE) {
+    result = 0;
+    num_bytes = 6;
+  } else {
+    throw std::runtime_error("Invalid UTF-8 encoding in frame header.\n");
+  }
+
+  for (int i = 0; i < num_bytes; ++i) {
+    auto cont_byte = reader.read<uint8_t>(8).value();
+    if ((cont_byte & 0xC0) != 0x80) { throw std::runtime_error("Invalid UTF-8 continuation byte.\n"); }
+    result = (result << 6) | (cont_byte & 0x3F);
+  }
+
+  return result;
+}
+// NOLINTEND
 /*
  * Utility functions (temporary)
  */
@@ -712,14 +752,13 @@ uint32_t determineBlockSize(int block_size_bits)
   uint32_t block_size{};
 
   if (block_size_bits == 0) {
-    std::string msg{ "Invalid block size bits (reserved)\n" };
-    throw std::runtime_error(msg);
+    throw std::runtime_error("Invalid block size bits (reserved)");
   } else if (block_size_bits == 1) {
     block_size = 192;// NOLINT
   } else if (block_size_bits >= 2 && block_size_bits <= 5) {// NOLINT
-    block_size = static_cast<uint32_t>(144 * (std::pow(2, block_size_bits)));// NOLINT
+    block_size = static_cast<uint32_t>(144 * (1 << block_size_bits));// NOLINT
   } else if (block_size_bits >= 8 && block_size_bits <= 15) {// NOLINT
-    block_size = static_cast<uint32_t>(std::pow(2, block_size_bits));
+    block_size = static_cast<uint32_t>(1 << block_size_bits);// NOLINT
   }
 
   return block_size;
@@ -781,37 +820,11 @@ uint16_t determineChannels(int channel_bits)
   uint16_t channels{};
 
   // NOLINTBEGIN
-  switch (channel_bits) {
-  case 0:
-    channels = 1;
-    break;
-  case 1:
+  if (channel_bits <= 7) {
+    channels = static_cast<uint16_t>(channel_bits + 1);
+  } else if (channel_bits == 8 || channel_bits == 9 || channel_bits == 10) {
     channels = 2;
-    break;
-  case 2:
-    channels = 3;
-    break;
-  case 3:
-    channels = 4;
-    break;
-  case 4:
-    channels = 5;
-    break;
-  case 5:
-    channels = 6;
-    break;
-  case 6:
-    channels = 7;
-    break;
-  case 7:
-    channels = 8;
-    break;
-  case 8:
-  case 9:
-  case 10:
-    channels = 2;
-    break;
-  default:
+  } else {
     throw std::runtime_error("Reserved channel bits.\n");
   }
   // NOLINTEND

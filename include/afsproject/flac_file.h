@@ -74,6 +74,8 @@ private:
   bool decodeFlacFile();
 
   bool encodeFlacFile();
+
+  static uint64_t readUTF8(etl::bit_stream_reader &);
 };
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
