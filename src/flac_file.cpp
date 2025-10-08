@@ -49,6 +49,8 @@ bool FlacFile::load(const std::string &file_path)
     return false;
   }
 
+  m_bits_read = 0;
+
   // TODO: validate the minimum file data soze for flac files.
 
   return decodeFlacFile();
@@ -85,6 +87,7 @@ bool FlacFile::decodeFlacFile()
   etl::bit_stream_reader reader(data_span, etl::endian::big);
 
   auto flac_marker = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
 
   std::string flac_marker_str{};
   // NOLINTBEGIN
@@ -104,8 +107,11 @@ bool FlacFile::decodeFlacFile()
   // process an unknown amount of metadata blocks
   while (true) {
     auto is_last = reader.read<uint8_t>(1).value();
+    m_bits_read += 1;
     auto block_type = reader.read<uint8_t>(7).value();// NOLINT
+    m_bits_read += 7;// NOLINT
     auto block_size = reader.read<uint32_t>(24).value();// NOLINT
+    m_bits_read += 24;// NOLINT
 
     std::cout << "Current metadata block - Last: " << static_cast<int>(is_last)
               << ", Type: " << static_cast<int>(block_type) << ", Size: " << block_size << "\n";
@@ -144,6 +150,7 @@ bool FlacFile::decodeFlacFile()
     default:
       std::cerr << "Unsupported/Reserved metadata block.\n";
       reader.skip(block_size * 8);// NOLINT
+      m_bits_read = (block_size * 8);// NOLINT
       break;
     }
 
@@ -163,23 +170,32 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
 
   // u(16) -> minimum block size
   auto min_block_size = reader.read<uint16_t>(16).value();// NOLINT
+  m_bits_read += 16;// NOLINT
   // u(16) -> maximum block size
   auto max_block_size = reader.read<uint16_t>(16).value();// NOLINT
+  m_bits_read += 16;// NOLINT
   // u(24) -> minimum frame size
   auto min_frame_size = reader.read<uint32_t>(24).value();// NOLINT
+  m_bits_read += 24;// NOLINT
   // u(24) -> maximum frame size
   auto max_frame_size = reader.read<uint32_t>(24).value();// NOLINT
+  m_bits_read += 24;// NOLINT
   // u(20) -> sample rate in Hz
   auto sample_rate = reader.read<uint32_t>(20).value();// NOLINT
+  m_bits_read += 20;// NOLINT
   // u(3) -> number of channels - 1
   auto num_channels = static_cast<int>(reader.read<uint8_t>(3).value());
+  m_bits_read += 3;// NOLINT
   // u(5) -> bits per sample - 1
   auto bits_per_samples = static_cast<int>(reader.read<uint8_t>(5).value());// NOLINT
+  m_bits_read += 5;// NOLINT
   // u(36) -> total number of interchannel samples
   auto total_samples = reader.read<uint64_t>(36).value();// NOLINT
+  m_bits_read += 36;// NOLINT
 
   // u(128) -> MD5 checksum -> skip
   reader.skip(128);// NOLINT
+  m_bits_read += 128;// NOLINT
 
   std::cout << "STREAMINFO:\n"
             << " Block size: " << block_size << "\n"
@@ -249,6 +265,7 @@ bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size
             << " Space: " << n << "\n";
 
   reader.skip(n);
+  m_bits_read += n;
 
   return true;
 }
@@ -257,6 +274,7 @@ bool FlacFile::decodeApplication(etl::bit_stream_reader &reader, uint32_t block_
 {
   // u(32) -> registered application ID.
   auto app_id = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   uint n = (block_size * 8) - 32;// NOLINT
 
   std::cout << "APPLICATION:\n"
@@ -264,6 +282,7 @@ bool FlacFile::decodeApplication(etl::bit_stream_reader &reader, uint32_t block_
             << " Application ID: " << app_id << "\n";
 
   reader.skip(n);
+  m_bits_read += n;
 
   return true;
 }
@@ -279,11 +298,14 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
   std::cout << " Seek points:\n";
   for (size_t i = 0; i < size_t(num_of_seek_points); ++i) {
     auto sample_number = reader.read<uint64_t>(64).value();// NOLINT
+    m_bits_read += 64;// NOLINT
 
     if (sample_number == 0xFFFFFFFFFFFFFFFF) { continue; }// NOLINT
 
     auto offset = reader.read<uint64_t>(64).value();// NOLINT
+    m_bits_read += 64;// NOLINT
     auto num_samples = reader.read<uint16_t>(16).value();// NOLINT
+    m_bits_read += 16;// NOLINT
 
     std::cout << "\tSeekpoint " << i << ": sample=" << sample_number << ", offset=" << offset
               << ", samples=" << num_samples << "\n";
@@ -299,6 +321,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
 {
   // 4 bytes of vendor string length (little endian)
   auto temp_str_len = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   uint32_t vendor_str_len = ((temp_str_len >> 24) & 0xFF) | ((temp_str_len >> 16) & 0xFF)// NOLINT
                             | ((temp_str_len >> 8) & 0xFF)// NOLINT
                             | (temp_str_len & 0xFF);// NOLINT
@@ -307,6 +330,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
   vendor_str.reserve(vendor_str_len);
   for (uint32_t i = 0; i < vendor_str_len; ++i) {
     auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    m_bits_read += 8;// NOLINT
     vendor_str += static_cast<char>(chr);
   }
 
@@ -315,6 +339,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
 
   // 4 bytes -> number of fields (little endian)
   auto temp_num_fields = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   uint32_t num_of_fields = ((temp_num_fields >> 24) & 0xFF) | ((temp_num_fields >> 16) & 0xFF)// NOLINT
                            | ((temp_num_fields >> 8) & 0xFF) | (temp_num_fields & 0xFF);// NOLINT
 
@@ -323,6 +348,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
   for (uint32_t i = 0; i < num_of_fields; ++i) {
     // 4 bytes -> comment/field length (little endian)
     auto temp_field_len = reader.read<uint32_t>(32).value();// NOLINT
+    m_bits_read += 32;// NOLINT
     uint32_t field_len = ((temp_field_len >> 24) & 0xFF) | ((temp_field_len >> 16) & 0xFF)// NOLINT
                          | ((temp_field_len >> 8) & 0xFF) | (temp_field_len & 0xFF);// NOLINT
     std::cout << "field length: " << field_len << "\n";
@@ -331,6 +357,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
     field.reserve(field_len);
     for (uint32_t j = 0; j < field_len; ++j) {
       auto chr = reader.read<uint8_t>(8).value();// NOLINT
+      m_bits_read += 8;// NOLINT
       field += static_cast<char>(chr);
     }
 
@@ -356,6 +383,7 @@ bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] u
   media_catalog_number.reserve(128);// NOLINT
   for (int i = 0; i < 128; ++i) {// NOLINT
     auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    m_bits_read += 8;// NOLINT
     if (chr != 0) { media_catalog_number += static_cast<char>(chr); }
   }
 
@@ -364,17 +392,21 @@ bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] u
 
   // u(64) -> number of lead-in samples
   auto num_lead_in = reader.read<uint64_t>(64).value();// NOLINT
+  m_bits_read += 64;// NOLINT
   std::cout << " Number of lead-in samples: " << num_lead_in << "\n";
 
   // u(1) -> if the cuesheet corresponds to CD-DA
   auto is_cd = static_cast<int>(reader.read<uint8_t>(1).value());
+  m_bits_read += 1;// NOLINT
   std::cout << " Does cuesheet corresponds to CD-DA: " << (is_cd == 1 ? "yes" : "no") << "\n";
 
   // u(7 + 258 * 8) -> reserved (Skip)
   reader.skip(2071);// NOLINT
+  m_bits_read += 2071;// NOLINT
 
   // u(8) -> number of tracks in this cuesheet
   auto num_tracks = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+  m_bits_read += 8;// NOLINT
   std::cout << " Number of tracks: " << num_tracks << "\n";
 
   std::cout << " Tracks:\n";
@@ -382,16 +414,19 @@ bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] u
   for (int i = 0; i < num_tracks; ++i) {
     // u(64) -> track offset
     auto track_offset = reader.read<uint64_t>(64).value();// NOLINT
+    m_bits_read += 64;// NOLINT
     std::cout << "\tTrack offset: " << track_offset << "\n";
 
     // u(8) -> track number
     auto track_number = reader.read<uint8_t>(8).value();// NOLINT
+    m_bits_read += 8;// NOLINT
     std::cout << "\tTrack number: " << static_cast<int>(track_number) << "\n";
 
     // u(12 * 8) -> track ISRC
     std::string track_isrc;
     for (int j = 0; j < 12; ++j) {// NOLINT
       auto chr = reader.read<uint8_t>(8).value();// NOLINT
+      m_bits_read += 8;// NOLINT
       if (chr != 0) { track_isrc += static_cast<char>(chr); }
     }
     std::cout << "\tTrack ISRC: " << track_isrc << "\n";
@@ -399,17 +434,21 @@ bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] u
 
   // u(1) -> track type
   auto track_type = static_cast<int>(reader.read<uint8_t>(1).value());
+  m_bits_read += 1;// NOLINT
   std::cout << "\tTrack type: " << (track_type == 0 ? "audio" : "non-audio") << "\n";
 
   // u(1) -> pre-emphasis flag
   auto pre_emphasis_flag = static_cast<int>(reader.read<uint8_t>(1).value());
+  m_bits_read += 1;
   std::cout << "\tPre-emphasis flag: " << (pre_emphasis_flag == 0 ? "no pre-emphasis" : "pre-emphasis") << "\n";
 
   // u(6 + 13 * 8) -> reserved (Skip)
   reader.skip(110);// NOLINT
+  m_bits_read += 110;// NOLINT
 
   // u(8) -> number of track index points
   auto num_indices = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+  m_bits_read += 8;// NOLINT
   std::cout << "\tNumber of track index points: " << num_indices << "\n";
 
   // index points
@@ -417,12 +456,15 @@ bool FlacFile::decodeCuesheet(etl::bit_stream_reader &reader, [[maybe_unused]] u
   for (int j = 0; j < num_indices; ++j) {
     // u(64) -> offset in samples
     auto index_offset = reader.read<uint64_t>(64).value();// NOLINT
+    m_bits_read += 64;// NOLINT
 
     // u(8) -> track index point number
     auto index_number = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+    m_bits_read += 8;// NOLINT
 
     // u(3 * 8) -> reserved (skip)
     reader.skip(24);// NOLINT
+    m_bits_read += 24;// NOLINT
 
     std::cout << "\t\tIndex " << index_number << ": offset " << index_offset << " samples\n";
   }
@@ -434,6 +476,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 {
   // u(32) -> picture type
   auto picture_type = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   const std::string picture_type_str = determinePictureTypeStr(picture_type);
 
   std::cout << "PICTURE:\n"
@@ -441,6 +484,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 
   // u(32) -> length of media type string in bytes.
   auto mime_length = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Mime length: " << mime_length << "\n";
 
   // u(n * 8) -> media type string
@@ -448,6 +492,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
   mime_type.reserve(mime_length);
   for (uint32_t i = 0; i < mime_length; ++i) {
     auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    m_bits_read += 8;// NOLINT
     mime_type += static_cast<char>(chr);
   }
 
@@ -455,6 +500,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 
   // u(32) -> length of description string
   auto desc_length = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Description length: " << desc_length << "\n";
 
   // u(n * 8) -> description string
@@ -462,33 +508,40 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
   description.reserve(desc_length);
   for (uint32_t i = 0; i < desc_length; ++i) {
     auto chr = reader.read<uint8_t>(8).value();// NOLINT
+    m_bits_read += 8;// NOLINT
     description += static_cast<char>(chr);
   }
   std::cout << " Description: " << description << "\n";
 
   // u(32) -> picture width
   auto width = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Picture width: " << width << "\n";
 
   // u(32) -> picture height
   auto height = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Picture height: " << height << "\n";
 
   // u(32) -> color depth
   auto color_depth = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Color depth: " << color_depth << "\n";
 
   // u(32) -> number of colors
   auto num_colors = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Number of colors used: " << num_colors << "\n";
 
   // u(32) -> length of picture data
   auto data_length = reader.read<uint32_t>(32).value();// NOLINT
+  m_bits_read += 32;// NOLINT
   std::cout << " Length of picture data: " << data_length << "\n";
 
   // u(n * 8) -> binary picture data
   // NOTE: skip it for now, we could encode the data to a picture we can view.
   reader.skip(data_length * 8);// NOLINT
+  m_bits_read += (data_length * 8);// NOLINT
 
   return true;
 }
@@ -496,15 +549,13 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 {
   std::cout << "Decoding frames...\n";
-  bool is_last = true;
 
-  while (is_last) {
+  while (m_bits_read < reader.size_bits()) {
     try {
       if (!decodeFrame(reader)) {
         std::cerr << "Failed to decode frame.\n";
         return false;
       }
-      is_last = false;// NOTE: temp control
     } catch (const std::exception &e) {
       std::cerr << "Exception while decoding frame: " << e.what() << "\n";
       return false;
@@ -532,33 +583,39 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   std::cout << " Decoding frame header.\n";
   // u(15) -> frame sync code (0b111111111111100)
   auto frame_sync_code = reader.read<uint16_t>(15).value();// NOLINT
-  if (frame_sync_code != 0x7ffc) {// NOLINT
+  m_bits_read += 15;// NOLINT
+  /*if (frame_sync_code != 0x7ffc) {// NOLINT
     std::cerr << "Invalid frame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
     return false;
-  }
+  }*/
   std::cout << "\tFrame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
 
   // u(1) -> blocking strategy bit
   auto strategy_bit = static_cast<int>(reader.read<uint8_t>(1).value());// NOLINT
+  m_bits_read += 1;// NOLINT
   std::cout << "\tBlocking strategy: " << (strategy_bit == 0 ? "fixed" : "variable") << "\n";
 
   // u(4) -> block size bits
   auto block_size_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  m_bits_read += 4;// NOLINT
   uint32_t block_size = determineBlockSize(block_size_bits);
 
   // u(4) -> sample rate bits
   auto sample_rate_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  m_bits_read += 4;// NOLINT
   uint32_t sample_rate = determineSampleRate(sample_rate_bits);
 
   if (sample_rate == 0) { sample_rate = m_sample_rate; }
 
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
+  m_bits_read += 4;// NOLINT
   const uint16_t num_channels = determineChannels(channel_bits);
   std::cout << "\tNum of channels: " << num_channels << " (" << channel_bits << ")\n";
 
   // u(3) -> bit depth bits
   auto bit_depth_bits = static_cast<int>(reader.read<uint8_t>(3).value());
+  m_bits_read += 3;// NOLINT
   uint16_t bit_depth = determineBitDepth(bit_depth_bits);
 
   if (bit_depth == 0) { bit_depth = m_bit_depth; }
@@ -567,6 +624,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 
   // u(1) -> reserved bit
   auto reserved_bit = static_cast<int>(reader.read<uint8_t>(1).value());
+  m_bits_read += 1;// NOLINT
   if (reserved_bit != 0) {
     std::cerr << "\tReserved bit is not 0.\n";
     return false;
@@ -597,23 +655,29 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   // NOLINTBEGIN
   if (block_size_bits == 6) {
     block_size = reader.read<uint8_t>(8).value() + 1;
+    m_bits_read += 8;// NOLINT
   } else if (block_size_bits == 7) {
     block_size = reader.read<uint16_t>(16).value() + 1;
+    m_bits_read += 16;// NOLINT
   }
   std::cout << "\tBlock size: " << block_size << " (" << block_size_bits << ")\n";
 
   if (sample_rate_bits == 12) {
     sample_rate = reader.read<uint8_t>(8).value() * 1000;
+    m_bits_read += 8;// NOLINT
   } else if (sample_rate_bits == 13) {
     sample_rate = reader.read<uint16_t>(16).value();
+    m_bits_read += 16;// NOLINT
   } else if (sample_rate_bits == 14) {
     sample_rate = reader.read<uint16_t>(16).value() * 10;
+    m_bits_read += 16;// NOLINT
   }
   // NOLINTEND
   std::cout << "\tSample rate: " << sample_rate << " (" << sample_rate_bits << ")\n";
 
   // u(8) -> CRC-8 of the frame header
   auto crc8 = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
+  m_bits_read += 8;// NOLINT
 
   std::cout << "\tCRC-8: 0x" << std::hex << crc8 << std::dec << "\n";
 
@@ -626,6 +690,7 @@ bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
 {
   auto first_byte = reader.read<uint8_t>(8).value();// NOLINT
+  m_bits_read += 8;// NOLINT
   int num_bytes = utf8SequenceLength(first_byte);
 
   if (num_bytes == 0) { return std::nullopt; }
@@ -638,6 +703,7 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
     break;
   case 2: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80) { return std::nullopt; }
 
@@ -647,7 +713,9 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
   }
   case 3: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte3 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80) { return std::nullopt; }
 
@@ -657,8 +725,11 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
   }
   case 4: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte3 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte4 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80) { return std::nullopt; }
 
@@ -669,9 +740,13 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
   }
   case 5: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte3 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte4 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte5 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80) {
       return std::nullopt;
@@ -684,10 +759,15 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
   }
   case 6: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte3 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte4 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte5 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte6 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80
         || (byte6 & 0xC0) != 0x80) {
@@ -701,11 +781,17 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
   }
   case 7: {
     auto byte2 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte3 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte4 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte5 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte6 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
     auto byte7 = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;// NOLINT
 
     if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80
         || (byte6 & 0xC0) != 0x80 || (byte7 & 0xC0) != 0x80) {
