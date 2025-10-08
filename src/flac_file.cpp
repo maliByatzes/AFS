@@ -707,7 +707,36 @@ bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader)
   return true;
 }
 
-bool FlacFile::decodeFrameSubframe(etl::bit_stream_reader &reader) {}
+bool FlacFile::decodeFrameSubframe(etl::bit_stream_reader &reader)
+{
+  std::cout << "Decoding a subframe.\n";
+  // decode subframe header
+  return decodeFrameSubframeHeader(reader);
+}
+
+bool FlacFile::decodeFrameSubframeHeader(etl::bit_stream_reader &reader)
+{
+  std::cout << "Subframe Header:\n";
+  // u(1) -> reserved bit (must be 0)
+  auto reserved_bit = reader.read<uint8_t>(1).value();
+  m_bits_read += 1;
+
+  if (static_cast<int>(reserved_bit) != 0) { throw std::runtime_error("The reserved bit must be 0.\n"); }
+  std::cout << "\tReserved bit: " << static_cast<int>(reserved_bit) << "\n";
+
+  // u(6) -> subframe type bits
+  auto subframe_type_bits = reader.read<uint8_t>(6).value();// NOLINT
+  m_bits_read += 6;// NOLINT
+  auto subframe_type = determineSubframeType(static_cast<int>(subframe_type_bits));
+  std::cout << "\tSubframe type: " << subframe_type << " (" << static_cast<int>(subframe_type_bits) << ")\n";
+
+  // u(1) -> does subframe uses wasted bits
+  auto is_wasted_bits = reader.read<uint8_t>(1).value();
+  m_bits_read += 1;
+  std::cout << "\tWasted bits: " << (static_cast<int>(is_wasted_bits) == 0 ? "no" : "yes") << "\n";
+
+  // u() -> wasted bits per sample
+}
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
@@ -1052,6 +1081,28 @@ uint16_t determineBitDepth(int bit_depth_bits)
 
   return bit_depth;
 }
+
+// NOLINTBEGIN
+std::string determineSubframeType(int subframe_type_bits)
+{
+  std::string subframe_type{};
+
+  if (subframe_type_bits == 0) {
+    subframe_type = "Constant subframe";
+  } else if (subframe_type_bits == 1) {
+    subframe_type = "Verbatim subframe";
+  } else if ((subframe_type_bits >= 2 && subframe_type_bits <= 7)
+             || (subframe_type_bits >= 13 && subframe_type_bits <= 31)) {
+    subframe_type = "Reserved";
+  } else if (subframe_type_bits >= 8 && subframe_type_bits <= 12) {
+    subframe_type = "Subframe with a fixed predictor of order " + std::to_string(subframe_type_bits - 8);
+  } else if (subframe_type_bits >= 32 && subframe_type_bits <= 63) {
+    subframe_type = "Subframe with a fixed predictor of order " + std::to_string(subframe_type_bits - 31);
+  }
+
+  return subframe_type;
+}
+// NOLINTEND
 
 // NOLINTBEGIN
 int utf8SequenceLength(uint8_t first_byte)

@@ -69,9 +69,13 @@ private:
 
   bool decodeFrames(etl::bit_stream_reader &);
   bool decodeFrame(etl::bit_stream_reader &);
+
   bool decodeFrameHeader(etl::bit_stream_reader &);
+
   bool decodeFrameSubframes(etl::bit_stream_reader &);
   bool decodeFrameSubframe(etl::bit_stream_reader &);
+  bool decodeFrameSubframeHeader(etl::bit_stream_reader &);
+
   bool decodeFrameFooter(etl::bit_stream_reader &);
 
   bool decodeFlacFile();
@@ -89,6 +93,7 @@ uint32_t determineBlockSize(int);
 uint32_t determineSampleRate(int);
 uint16_t determineChannels(int);
 uint16_t determineBitDepth(int);
+std::string determineSubframeType(int);
 
 int utf8SequenceLength(uint8_t);
 
