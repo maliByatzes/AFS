@@ -531,7 +531,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   std::cout << " Decoding frame header.\n";
   // u(15) -> frame sync code (0b111111111111100)
   auto frame_sync_code = reader.read<uint16_t>(15).value();// NOLINT
-  if (frame_sync_code != 0x7ffe) {// NOLINT
+  if (frame_sync_code != 0x7ffc) {// NOLINT
     std::cerr << "Invalid frame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
     return false;
   }
