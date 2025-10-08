@@ -5,6 +5,7 @@
 #include <bitset>
 #include <cstdint>
 #include <etl/bit_stream.h>
+#include <optional>
 #include <vector>
 
 namespace afs {
@@ -75,7 +76,7 @@ private:
 
   bool encodeFlacFile();
 
-  static uint64_t readUTF8(etl::bit_stream_reader &);
+  static std::optional<uint64_t> readUTF8(etl::bit_stream_reader &);
 };
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
@@ -86,6 +87,8 @@ uint32_t determineBlockSize(int);
 uint32_t determineSampleRate(int);
 uint16_t determineChannels(int);
 uint16_t determineBitDepth(int);
+
+int utf8SequenceLength(uint8_t);
 
 }// namespace afs
 

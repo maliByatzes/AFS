@@ -10,6 +10,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -575,11 +576,21 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   uint64_t coded_number = 0;
   if (strategy_bit == 0) {
     // fixed
-    coded_number = readUTF8(reader);
+    auto res = readUTF8(reader);
+    if (res.has_value()) {
+      coded_number = res.value();
+    } else {
+      throw std::runtime_error("Error decoding UTF-8 bytes");
+    }
     std::cout << "\tFrame number: " << coded_number << "\n";
   } else {
     // variable
-    coded_number = readUTF8(reader);
+    auto res = readUTF8(reader);
+    if (res.has_value()) {
+      coded_number = res.value();
+    } else {
+      throw std::runtime_error("Error decoding UTF-8 bytes");
+    }
     std::cout << "\tSample number: " << coded_number << "\n";
   }
 
@@ -612,47 +623,108 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
 // NOLINTBEGIN
-uint64_t FlacFile::readUTF8(etl::bit_stream_reader &reader)
+std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
 {
-  // FIXME: still dont quite understand may contain bugs
-  auto first_byte = reader.read<uint8_t>(8).value();
+  auto first_byte = reader.read<uint8_t>(8).value();// NOLINT
+  int num_bytes = utf8SequenceLength(first_byte);
+
+  if (num_bytes == 0) { return std::nullopt; }
 
   uint64_t result = 0;
-  int num_bytes = 0;
 
-  if ((first_byte & 0x80) == 0) {
-    return first_byte;
-  } else if ((first_byte & 0xE0) == 0xC0) {
-    result = first_byte & 0x1F;
-    num_bytes = 1;
-  } else if ((first_byte & 0xF0) == 0xE0) {
-    result = first_byte & 0x0F;
-    num_bytes = 2;
-  } else if ((first_byte & 0xF8) == 0xF0) {
-    result = first_byte & 0x07;
-    num_bytes = 3;
-  } else if ((first_byte & 0xFC) == 0xF8) {
-    result = first_byte & 0x03;
-    num_bytes = 4;
-  } else if ((first_byte & 0xFE) == 0xFC) {
-    result = first_byte & 0x01;
-    num_bytes = 5;
-  } else if (first_byte == 0xFE) {
-    result = 0;
-    num_bytes = 6;
-  } else {
-    throw std::runtime_error("Invalid UTF-8 encoding in frame header.\n");
+  switch (num_bytes) {
+  case 1:
+    result = first_byte & 0x7F;
+    break;
+  case 2: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+
+    if ((byte2 & 0xC0) != 0x80) { return std::nullopt; }
+
+    result = static_cast<uint64_t>(((first_byte & 0x1F) << 6) | (byte2 & 0x3F));
+
+    break;
   }
+  case 3: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+    auto byte3 = reader.read<uint8_t>(8).value();
 
-  for (int i = 0; i < num_bytes; ++i) {
-    auto cont_byte = reader.read<uint8_t>(8).value();
-    if ((cont_byte & 0xC0) != 0x80) { throw std::runtime_error("Invalid UTF-8 continuation byte.\n"); }
-    result = (result << 6) | (cont_byte & 0x3F);
+    if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80) { return std::nullopt; }
+
+    result = static_cast<uint64_t>(((first_byte & 0x0F) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F));
+
+    break;
+  }
+  case 4: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+    auto byte3 = reader.read<uint8_t>(8).value();
+    auto byte4 = reader.read<uint8_t>(8).value();
+
+    if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80) { return std::nullopt; }
+
+    result = static_cast<uint64_t>(
+      ((first_byte & 0x07) << 18) | ((byte2 & 0x3F) << 12) | ((byte3 & 0x3F) << 6) | (byte4 & 0x3F));
+
+    break;
+  }
+  case 5: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+    auto byte3 = reader.read<uint8_t>(8).value();
+    auto byte4 = reader.read<uint8_t>(8).value();
+    auto byte5 = reader.read<uint8_t>(8).value();
+
+    if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80) {
+      return std::nullopt;
+    }
+
+    result = static_cast<uint64_t>(((first_byte & 0x03) << 24) | ((byte2 & 0x3F) << 18) | ((byte3 & 0x3F) << 12)
+                                   | ((byte4 & 0x3F) << 6) | (byte5 & 0x3F));
+
+    break;
+  }
+  case 6: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+    auto byte3 = reader.read<uint8_t>(8).value();
+    auto byte4 = reader.read<uint8_t>(8).value();
+    auto byte5 = reader.read<uint8_t>(8).value();
+    auto byte6 = reader.read<uint8_t>(8).value();
+
+    if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80
+        || (byte6 & 0xC0) != 0x80) {
+      return std::nullopt;
+    }
+
+    result = static_cast<uint64_t>(((first_byte & 0x01) << 30) | ((byte2 & 0x3F) << 24) | ((byte3 & 0x3F) << 18)
+                                   | ((byte4 & 0x3F) << 12) | ((byte5 & 0x3F) << 6) | (byte6 & 0x3F));
+
+    break;
+  }
+  case 7: {
+    auto byte2 = reader.read<uint8_t>(8).value();
+    auto byte3 = reader.read<uint8_t>(8).value();
+    auto byte4 = reader.read<uint8_t>(8).value();
+    auto byte5 = reader.read<uint8_t>(8).value();
+    auto byte6 = reader.read<uint8_t>(8).value();
+    auto byte7 = reader.read<uint8_t>(8).value();
+
+    if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80 || (byte5 & 0xC0) != 0x80
+        || (byte6 & 0xC0) != 0x80 || (byte7 & 0xC0) != 0x80) {
+      return std::nullopt;
+    }
+
+    result = static_cast<uint64_t>(((byte2 & 0x3F) << 30) | ((byte3 & 0x3F) << 24) | ((byte4 & 0x3F) << 18)
+                                   | ((byte5 & 0x3F) << 12) | ((byte6 & 0x3F) << 6) | (byte7 & 0x3F));
+
+    break;
+  }
+  default:
+    return std::nullopt;
   }
 
   return result;
 }
 // NOLINTEND
+
 /*
  * Utility functions (temporary)
  */
@@ -869,5 +941,19 @@ uint16_t determineBitDepth(int bit_depth_bits)
 
   return bit_depth;
 }
+
+// NOLINTBEGIN
+int utf8SequenceLength(uint8_t first_byte)
+{
+  if ((first_byte & 0x80) == 0x00) return 1;
+  if ((first_byte & 0xE0) == 0xC0) return 2;
+  if ((first_byte & 0xF0) == 0xE0) return 3;
+  if ((first_byte & 0xF8) == 0xF0) return 4;
+  if ((first_byte & 0xFC) == 0xF8) return 5;
+  if ((first_byte & 0xFE) == 0xFC) return 6;
+  if (first_byte == 0xFE) return 7;
+  return 0;
+}
+// NOLINTEND
 
 }// namespace afs
