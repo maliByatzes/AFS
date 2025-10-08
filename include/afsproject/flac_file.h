@@ -71,6 +71,7 @@ private:
   bool decodeFrame(etl::bit_stream_reader &);
   bool decodeFrameHeader(etl::bit_stream_reader &);
   bool decodeFrameSubframes(etl::bit_stream_reader &);
+  bool decodeFrameSubframe(etl::bit_stream_reader &);
   bool decodeFrameFooter(etl::bit_stream_reader &);
 
   bool decodeFlacFile();

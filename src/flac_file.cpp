@@ -570,9 +570,11 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 {
   // decode frame header
-  if (!decodeFrameHeader(reader)) { return false; }// NOLINT
+  if (!decodeFrameHeader(reader)) { return false; }
 
   // TODO: decode subframes for each channel
+  if (!decodeFrameSubframes(reader)) { return false; }
+
   // TODO: read frame footer
 
   return true;
@@ -683,6 +685,29 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 
   return true;
 }
+
+bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader)
+{
+  std::cout << "Decoding subframes.\n";
+
+  for (uint16_t i = 0; i < m_num_channels; ++i) {
+    try {
+      if (!decodeFrameSubframe(reader)) {
+        std::cerr << "Failed to decode subframe.\n";
+        return false;
+      }
+    } catch (const std::exception &e) {
+      std::cerr << "Exception while decoding subframe: " << e.what() << "\n";
+      return false;
+    }
+  }
+
+  std::cout << "Successfully decoded all subframes.\n";
+
+  return true;
+}
+
+bool FlacFile::decodeFrameSubframe(etl::bit_stream_reader &reader) {}
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
 
