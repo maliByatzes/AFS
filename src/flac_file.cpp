@@ -775,20 +775,25 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
 
   if (subframe_type_bits == 0) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
+
     return decodeConstantSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
   } else if (subframe_type_bits == 1) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
+
     return decodeVerbatimSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
   } else if (subframe_type_bits >= 8 && subframe_type_bits <= 12) {// NOLINT
     uint8_t order = subframe_type_bits & 0x07;// NOLINT
     std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
+
     return decodeFixedSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
   } else if (subframe_type_bits >= 32) {// NOLINT
     uint8_t order = (subframe_type_bits & 0x1F) + 1;// NOLINT
     std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
+
     return decodeLPCSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
   } else {
     std::cerr << "Reserved subframe type: " << subframe_type_bits << "\n";
+
     return false;
   }
 }
@@ -800,7 +805,14 @@ bool FlacFile::decodeConstantSubframe([[maybe_unused]] etl::bit_stream_reader &r
   [[maybe_unused]] uint16_t bit_depth,
   [[maybe_unused]] uint8_t wasted_bits)
 {
-  return false;
+  int32_t value = readSignedValue(reader, bit_depth);
+
+  if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
+
+  for (uint32_t i = 0; i < block_size; ++i) { samples[i] = value; }
+
+  std::cout << "\t\tConstant value: " << value << "\n";
+  return true;
 }
 
 bool FlacFile::decodeVerbatimSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
@@ -959,6 +971,21 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
 }
 // NOLINTEND
 
+int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
+{
+  if (bits == 0) { return 0; }
+
+  const uint32_t value = reader.read<uint32_t>(static_cast<uint_least8_t>(bits)).value();
+  m_bits_read += bits;
+
+  uint32_t sign_bit = 1U << (bits - 1);// NOLINT
+  if (value & sign_bit) {// NOLINT
+    const uint32_t mask = (~0U) << bits;
+    return static_cast<int32_t>(value | mask);
+  } else {
+    return static_cast<int>(value);
+  }
+}
 /*
  * Utility functions (temporary)
  */
