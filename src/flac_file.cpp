@@ -574,7 +574,11 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
   if (!frame_header.has_value()) { return false; }
 
   // TODO: decode subframes for each channel
-  if (!decodeFrameSubframes(reader, frame_header.value())) { return false; }
+  if (!decodeSubframes(reader, frame_header.value())) { return false; }
+
+  // TODO: handle stereo decorrelation for letf/side, right/side, mid/side
+
+  // TODO: zero-pad to byte alignment
 
   // TODO: read frame footer
 
@@ -702,7 +706,7 @@ std::optional<FrameHeader> FlacFile::decodeFrameHeader(etl::bit_stream_reader &r
   return frame_header;
 }
 
-bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
+bool FlacFile::decodeSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
 {
   std::cout << "Decoding subframes.\n";
 
@@ -711,31 +715,30 @@ bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader, FrameHeader 
   for (uint16_t i = 0; i < frame_header.num_channels; ++i) {
     channel_data[i].resize(frame_header.block_size);
 
-    try {
-      if (!decodeFrameSubframe(reader)) {
-        std::cerr << "Failed to decode subframe.\n";
-        return false;
-      }
-    } catch (const std::exception &e) {
-      std::cerr << "Exception while decoding subframe: " << e.what() << "\n";
+    uint16_t subframe_bit_depth = frame_header.bit_depth;
+    if ((frame_header.channel_bits == 8 && i == 1) || (frame_header.channel_bits == 9 && i == 0)// NOLINT
+        || (frame_header.channel_bits == 10 && i == 1)) {// NOLINT
+      subframe_bit_depth = frame_header.bit_depth + 1;
+    }
+
+    if (!decodeSubframe(reader, channel_data[i], frame_header.block_size, subframe_bit_depth)) {
+      std::cerr << "Failed to decode subframe.\n";
       return false;
     }
   }
 
-  std::cout << "Successfully decoded all subframes.\n";
-
   return true;
 }
 
-bool FlacFile::decodeFrameSubframe(etl::bit_stream_reader &reader)
+// NOLINTBEGIN
+bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
+  std::vector<int32_t> &ch_data,
+  uint32_t block_size,
+  uint16_t subframe_bit_depth)
 {
   std::cout << "Decoding a subframe.\n";
-  // decode subframe header
-  return decodeFrameSubframeHeader(reader);
-}
 
-bool FlacFile::decodeFrameSubframeHeader(etl::bit_stream_reader &reader)
-{
+  // decode subframe header
   std::cout << "Subframe Header:\n";
   // u(1) -> reserved bit (must be 0)
   auto reserved_bit = reader.read<uint8_t>(1).value();
@@ -745,17 +748,88 @@ bool FlacFile::decodeFrameSubframeHeader(etl::bit_stream_reader &reader)
   std::cout << "\tReserved bit: " << static_cast<int>(reserved_bit) << "\n";
 
   // u(6) -> subframe type bits
-  auto subframe_type_bits = reader.read<uint8_t>(6).value();// NOLINT
+  auto subframe_type_bits = static_cast<int>(reader.read<uint8_t>(6).value());// NOLINT
   m_bits_read += 6;// NOLINT
-  auto subframe_type = determineSubframeType(static_cast<int>(subframe_type_bits));
-  std::cout << "\tSubframe type: " << subframe_type << " (" << static_cast<int>(subframe_type_bits) << ")\n";
+  auto subframe_type = determineSubframeType(subframe_type_bits);
+  std::cout << "\tSubframe type: " << subframe_type << " (" << subframe_type_bits << ")\n";
 
   // u(1) -> does subframe uses wasted bits
-  auto is_wasted_bits = reader.read<uint8_t>(1).value();
+  auto is_wasted_bits = static_cast<int>(reader.read<uint8_t>(1).value());
   m_bits_read += 1;
-  std::cout << "\tWasted bits: " << (static_cast<int>(is_wasted_bits) == 0 ? "no" : "yes") << "\n";
+  std::cout << "\tWasted bits: " << (is_wasted_bits == 0 ? "no" : "yes") << "\n";
 
-  // u() -> wasted bits per sample
+  // u(n) -> wasted bits per sample
+  uint8_t wasted_bits = 0;
+  if (is_wasted_bits == 1) {
+    wasted_bits = 1;
+
+    while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) {
+      m_bits_read += 1;
+      wasted_bits++;
+    }
+
+    std::cout << "\tWasted bits: " << wasted_bits << "\n";
+  }
+
+  uint16_t adjusted_bit_depth = subframe_bit_depth - wasted_bits;
+
+  if (subframe_type_bits == 0) {
+    std::cout << "\tDecoding " << subframe_type << ":\n";
+    return decodeConstantSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
+  } else if (subframe_type_bits == 1) {
+    std::cout << "\tDecoding " << subframe_type << ":\n";
+    return decodeVerbatimSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
+  } else if (subframe_type_bits >= 8 && subframe_type_bits <= 12) {// NOLINT
+    uint8_t order = subframe_type_bits & 0x07;// NOLINT
+    std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
+    return decodeFixedSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
+  } else if (subframe_type_bits >= 32) {// NOLINT
+    uint8_t order = (subframe_type_bits & 0x1F) + 1;// NOLINT
+    std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
+    return decodeLPCSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
+  } else {
+    std::cerr << "Reserved subframe type: " << subframe_type_bits << "\n";
+    return false;
+  }
+}
+// NOLINTEND
+
+bool FlacFile::decodeConstantSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
+  [[maybe_unused]] std::vector<int32_t> &samples,
+  [[maybe_unused]] uint32_t block_size,// NOLINT
+  [[maybe_unused]] uint16_t bit_depth,
+  [[maybe_unused]] uint8_t wasted_bits)
+{
+  return false;
+}
+
+bool FlacFile::decodeVerbatimSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
+  [[maybe_unused]] std::vector<int32_t> &samples,
+  [[maybe_unused]] uint32_t block_size,// NOLINT
+  [[maybe_unused]] uint16_t bit_depth,
+  [[maybe_unused]] uint8_t wasted_bits)
+{
+  return false;
+}
+
+bool FlacFile::decodeFixedSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
+  [[maybe_unused]] std::vector<int32_t> &samples,
+  [[maybe_unused]] uint32_t block_size,// NOLINT
+  [[maybe_unused]] uint16_t bit_depth,
+  [[maybe_unused]] uint8_t order,
+  [[maybe_unused]] uint8_t wasted_bits)
+{
+  return false;
+}
+
+bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
+  [[maybe_unused]] std::vector<int32_t> &samples,
+  [[maybe_unused]] uint32_t block_size,// NOLINT
+  [[maybe_unused]] uint16_t bit_depth,
+  [[maybe_unused]] uint8_t order,
+  [[maybe_unused]] uint8_t wasted_bits)
+{
+  return false;
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT

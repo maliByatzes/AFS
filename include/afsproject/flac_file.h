@@ -88,9 +88,14 @@ private:
 
   std::optional<FrameHeader> decodeFrameHeader(etl::bit_stream_reader &);
 
-  bool decodeFrameSubframes(etl::bit_stream_reader &, FrameHeader &);
-  bool decodeFrameSubframe(etl::bit_stream_reader &);
-  bool decodeFrameSubframeHeader(etl::bit_stream_reader &);
+  bool decodeSubframes(etl::bit_stream_reader &, FrameHeader &);
+  bool decodeSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
+  bool decodeSubframeHeader(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
+  static bool decodeConstantSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
+  static bool decodeVerbatimSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
+  static bool
+    decodeFixedSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
+  static bool decodeLPCSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
 
   bool decodeFrameFooter(etl::bit_stream_reader &);
 
