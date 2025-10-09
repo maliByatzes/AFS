@@ -850,9 +850,38 @@ bool FlacFile::decodeFixedSubframe([[maybe_unused]] etl::bit_stream_reader &read
   }
 
   std::vector<int32_t> residual(block_size - order);
-  // if (!decodedResidual(reader, residual, block_size - order, order)) { return false; }
+  if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
 
-  return decodeResidual(reader, residual, block_size - order, order);
+  for (uint32_t i = order; i < block_size; ++i) {
+    int32_t prediction = 0;
+    const uint32_t idx = i - 1;
+
+    switch (order) {// NOLINT
+    case 0:
+      prediction = 0;
+      break;
+    case 1:
+      prediction = samples[idx];
+      break;
+    case 2:
+      prediction = 2 * samples[idx] - samples[idx - 1];
+      break;
+    case 3:
+      prediction = 3 * samples[idx] - 3 * samples[idx - 1] + samples[idx - 2];
+      break;
+    case 4:
+      prediction = 4 * samples[idx] - 6 * samples[idx - 1] + 4 * samples[idx - 2] - samples[idx - 3];// NOLINT
+      break;
+    }
+
+    samples[i] = residual[i - order] + prediction;
+
+    if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
+  }
+
+  std::cout << "\t\tDecoded FIXED order " << static_cast<int>(order) << "\n";
+
+  return true;
 }
 
 bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
