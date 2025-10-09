@@ -570,41 +570,49 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 {
   // decode frame header
-  if (!decodeFrameHeader(reader)) { return false; }
+  auto frame_header = decodeFrameHeader(reader);
+  if (!frame_header.has_value()) { return false; }
 
   // TODO: decode subframes for each channel
-  if (!decodeFrameSubframes(reader)) { return false; }
+  if (!decodeFrameSubframes(reader, frame_header.value())) { return false; }
 
   // TODO: read frame footer
 
   return true;
 }
 
-bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
+std::optional<FrameHeader> FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
 {
+  FrameHeader frame_header{};
+
   std::cout << " Decoding frame header.\n";
   // u(15) -> frame sync code (0b111111111111100)
   auto frame_sync_code = reader.read<uint16_t>(15).value();// NOLINT
   m_bits_read += 15;// NOLINT
-  /*if (frame_sync_code != 0x7ffc) {// NOLINT
+  if (frame_sync_code != 0x7ffc) {// NOLINT
     std::cerr << "Invalid frame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
-    return false;
-  }*/
+    return std::nullopt;
+  }
+  frame_header.frame_sync_code = frame_sync_code;
   std::cout << "\tFrame sync code: 0x" << std::hex << frame_sync_code << std::dec << "\n";
 
   // u(1) -> blocking strategy bit
   auto strategy_bit = static_cast<int>(reader.read<uint8_t>(1).value());// NOLINT
   m_bits_read += 1;// NOLINT
+  frame_header.strategy_bit = strategy_bit;
   std::cout << "\tBlocking strategy: " << (strategy_bit == 0 ? "fixed" : "variable") << "\n";
 
   // u(4) -> block size bits
   auto block_size_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;// NOLINT
+  frame_header.block_size_bits = block_size_bits;
   uint32_t block_size = determineBlockSize(block_size_bits);
+  frame_header.block_size = block_size;
 
   // u(4) -> sample rate bits
   auto sample_rate_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;// NOLINT
+  frame_header.sample_rate_bits = sample_rate_bits;
   uint32_t sample_rate = determineSampleRate(sample_rate_bits);
 
   if (sample_rate == 0) { sample_rate = m_sample_rate; }
@@ -612,16 +620,20 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   // u(4) -> channel bits
   auto channel_bits = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;// NOLINT
+  frame_header.channel_bits = channel_bits;
   const uint16_t num_channels = determineChannels(channel_bits);
+  frame_header.num_channels = num_channels;
   std::cout << "\tNum of channels: " << num_channels << " (" << channel_bits << ")\n";
 
   // u(3) -> bit depth bits
   auto bit_depth_bits = static_cast<int>(reader.read<uint8_t>(3).value());
+  frame_header.bit_depth_bits = bit_depth_bits;
   m_bits_read += 3;// NOLINT
   uint16_t bit_depth = determineBitDepth(bit_depth_bits);
 
   if (bit_depth == 0) { bit_depth = m_bit_depth; }
 
+  frame_header.bit_depth = bit_depth;
   std::cout << "\tBit depth: " << bit_depth << " (" << bit_depth_bits << ")\n";
 
   // u(1) -> reserved bit
@@ -629,7 +641,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
   m_bits_read += 1;// NOLINT
   if (reserved_bit != 0) {
     std::cerr << "\tReserved bit is not 0.\n";
-    return false;
+    return std::nullopt;
   }
 
   // UTF-8 coded sampl/frame number (coded number)
@@ -653,6 +665,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
     }
     std::cout << "\tSample number: " << coded_number << "\n";
   }
+  frame_header.coded_number = coded_number;
 
   // NOLINTBEGIN
   if (block_size_bits == 6) {
@@ -662,6 +675,7 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
     block_size = reader.read<uint16_t>(16).value() + 1;
     m_bits_read += 16;// NOLINT
   }
+  frame_header.block_size = block_size;
   std::cout << "\tBlock size: " << block_size << " (" << block_size_bits << ")\n";
 
   if (sample_rate_bits == 12) {
@@ -675,22 +689,28 @@ bool FlacFile::decodeFrameHeader(etl::bit_stream_reader &reader)
     m_bits_read += 16;// NOLINT
   }
   // NOLINTEND
+  frame_header.sample_rate = sample_rate;
   std::cout << "\tSample rate: " << sample_rate << " (" << sample_rate_bits << ")\n";
 
   // u(8) -> CRC-8 of the frame header
   auto crc8 = static_cast<int>(reader.read<uint8_t>(8).value());// NOLINT
   m_bits_read += 8;// NOLINT
 
+  frame_header.crc8 = crc8;
   std::cout << "\tCRC-8: 0x" << std::hex << crc8 << std::dec << "\n";
 
-  return true;
+  return frame_header;
 }
 
-bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader)
+bool FlacFile::decodeFrameSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
 {
   std::cout << "Decoding subframes.\n";
 
-  for (uint16_t i = 0; i < m_num_channels; ++i) {
+  std::vector<std::vector<int32_t>> channel_data(frame_header.num_channels);
+
+  for (uint16_t i = 0; i < frame_header.num_channels; ++i) {
+    channel_data[i].resize(frame_header.block_size);
+
     try {
       if (!decodeFrameSubframe(reader)) {
         std::cerr << "Failed to decode subframe.\n";

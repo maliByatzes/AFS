@@ -36,6 +36,22 @@ struct StreamInfo
   uint64_t total_samples;
 };
 
+struct FrameHeader
+{
+  uint16_t frame_sync_code;
+  int strategy_bit;
+  int block_size_bits;
+  uint32_t block_size;
+  int sample_rate_bits;
+  uint32_t sample_rate;
+  int channel_bits;
+  uint16_t num_channels;
+  int bit_depth_bits;
+  uint16_t bit_depth;
+  uint64_t coded_number;
+  int crc8;
+};
+
 class FlacFile : public IAudioFile// NOLINT
 {
 public:
@@ -70,9 +86,9 @@ private:
   bool decodeFrames(etl::bit_stream_reader &);
   bool decodeFrame(etl::bit_stream_reader &);
 
-  bool decodeFrameHeader(etl::bit_stream_reader &);
+  std::optional<FrameHeader> decodeFrameHeader(etl::bit_stream_reader &);
 
-  bool decodeFrameSubframes(etl::bit_stream_reader &);
+  bool decodeFrameSubframes(etl::bit_stream_reader &, FrameHeader &);
   bool decodeFrameSubframe(etl::bit_stream_reader &);
   bool decodeFrameSubframeHeader(etl::bit_stream_reader &);
 
