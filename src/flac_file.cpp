@@ -799,11 +799,11 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
 }
 // NOLINTEND
 
-bool FlacFile::decodeConstantSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
-  [[maybe_unused]] std::vector<int32_t> &samples,
-  [[maybe_unused]] uint32_t block_size,// NOLINT
-  [[maybe_unused]] uint16_t bit_depth,
-  [[maybe_unused]] uint8_t wasted_bits)
+bool FlacFile::decodeConstantSubframe(etl::bit_stream_reader &reader,
+  std::vector<int32_t> &samples,
+  uint32_t block_size,// NOLINT
+  uint16_t bit_depth,
+  uint8_t wasted_bits)
 {
   int32_t value = readSignedValue(reader, bit_depth);
 
@@ -815,23 +815,44 @@ bool FlacFile::decodeConstantSubframe([[maybe_unused]] etl::bit_stream_reader &r
   return true;
 }
 
-bool FlacFile::decodeVerbatimSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
-  [[maybe_unused]] std::vector<int32_t> &samples,
-  [[maybe_unused]] uint32_t block_size,// NOLINT
-  [[maybe_unused]] uint16_t bit_depth,
-  [[maybe_unused]] uint8_t wasted_bits)
+bool FlacFile::decodeVerbatimSubframe(etl::bit_stream_reader &reader,
+  std::vector<int32_t> &samples,
+  uint32_t block_size,// NOLINT
+  uint16_t bit_depth,
+  uint8_t wasted_bits)
 {
-  return false;
+  for (uint32_t i = 0; i < block_size; ++i) {
+    int32_t value = readSignedValue(reader, bit_depth);
+
+    if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
+
+    samples[i] = value;
+  }
+
+  std::cout << "\t\tRead " << block_size << " verbatim samples\n";
+  return true;
 }
 
 bool FlacFile::decodeFixedSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
   [[maybe_unused]] std::vector<int32_t> &samples,
   [[maybe_unused]] uint32_t block_size,// NOLINT
   [[maybe_unused]] uint16_t bit_depth,
-  [[maybe_unused]] uint8_t order,
+  [[maybe_unused]] uint8_t order,// NOLINT
   [[maybe_unused]] uint8_t wasted_bits)
 {
-  return false;
+  // s(n) -> unencoded warm-up samples
+  for (uint8_t i = 0; i < order; ++i) {
+    int32_t value = readSignedValue(reader, bit_depth);
+
+    if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
+
+    samples[i] = value;
+  }
+
+  std::vector<int32_t> residual(block_size - order);
+  // if (!decodedResidual(reader, residual, block_size - order, order)) { return false; }
+
+  return decodeResidual(reader, residual, block_size - order, order);
 }
 
 bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
@@ -842,6 +863,60 @@ bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader
   [[maybe_unused]] uint8_t wasted_bits)
 {
   return false;
+}
+
+bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
+  std::vector<int32_t> &residual,
+  uint32_t num_samples,// NOLINT
+  uint8_t predictor_order)
+{
+  // u(2) -> coding method bits
+  auto coding_method = static_cast<int>(reader.read<uint8_t>(2).value());
+  m_bits_read += 2;
+
+  if (coding_method > 1) {
+    std::cerr << "Reserved residual coding method.\n";
+    return false;
+  }
+
+  // u(4) -> partition order
+  auto partition_order = static_cast<int>(reader.read<uint8_t>(4).value());
+  m_bits_read += 4;
+  uint32_t num_partitions = 1 << partition_order;// NOLINT
+
+  uint32_t sample_idx = 0;
+
+  for (uint32_t p = 0; p < num_partitions; ++p) {// NOLINT
+    uint32_t partition_samples{};
+
+    if (partition_order == 0) {
+      partition_samples = num_samples - predictor_order;
+    } else if (p == 0) {
+      partition_samples = (num_samples / num_partitions) - predictor_order;
+    } else {
+      partition_samples = num_samples / num_partitions;
+    }
+
+    uint8_t rice_param_bits = (coding_method == 0) ? 4 : 5;// NOLINT
+    auto rice_param = reader.read<uint32_t>(uint_least8_t(rice_param_bits)).value();
+    m_bits_read += rice_param_bits;
+
+    uint32_t escape_code = (coding_method == 0) ? 15 : 31;// NOLINT
+
+    if (rice_param == escape_code) {
+      auto bps = reader.read<uint8_t>(5).value();// NOLINT
+      m_bits_read += 5;// NOLINT
+
+      for (uint32_t i = 0; i < partition_samples; ++i) { residual[sample_idx++] = readSignedValue(reader, bps); }
+    } else {
+      for (uint32_t i = 0; i < partition_samples; ++i) {
+        residual[sample_idx++] = readRiceSignedValue(reader, rice_param);
+      }
+    }
+  }
+
+  std::cout << "\t\tDecoded residual: " << num_samples << " samples, " << num_partitions << " partitions\n";
+  return true;
 }
 
 bool FlacFile::encodeFlacFile() { return false; }// NOLINT
@@ -986,6 +1061,30 @@ int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
     return static_cast<int>(value);
   }
 }
+
+int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t param)
+{
+  uint32_t quotient = 0;
+  while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) {
+    m_bits_read++;
+    quotient++;
+  }
+
+  uint32_t remainder = 0;
+  if (param > 0) {
+    remainder = reader.read<uint32_t>(uint_least8_t(param)).value();
+    m_bits_read += param;
+  }
+
+  const uint32_t value = (quotient << param) | remainder;
+
+  if (value & 1) {// NOLINT
+    return -static_cast<int32_t>((value + 1) >> 1);// NOLINT
+  } else {
+    return static_cast<int32_t>(value >> 1);// NOLINT
+  }
+}
+
 /*
  * Utility functions (temporary)
  */

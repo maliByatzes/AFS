@@ -92,10 +92,10 @@ private:
   bool decodeSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
   bool decodeSubframeHeader(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
   bool decodeConstantSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
-  static bool decodeVerbatimSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
-  static bool
-    decodeFixedSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
+  bool decodeVerbatimSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
+  bool decodeFixedSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
   static bool decodeLPCSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
+  bool decodeResidual(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint8_t);
 
   bool decodeFrameFooter(etl::bit_stream_reader &);
 
@@ -105,6 +105,7 @@ private:
 
   std::optional<uint64_t> readUTF8(etl::bit_stream_reader &);
   int32_t readSignedValue(etl::bit_stream_reader &, uint16_t);
+  int32_t readRiceSignedValue(etl::bit_stream_reader &, uint32_t);
 };
 
 std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
