@@ -756,7 +756,7 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
   // u(1) -> does subframe uses wasted bits
   auto is_wasted_bits = static_cast<int>(reader.read<uint8_t>(1).value());
   m_bits_read += 1;
-  std::cout << "\tWasted bits: " << (is_wasted_bits == 0 ? "no" : "yes") << "\n";
+  std::cout << "\tAre there wasted bits: " << (is_wasted_bits == 0 ? "no" : "yes") << "\n";
 
   // u(n) -> wasted bits per sample
   uint8_t wasted_bits = 0;
@@ -768,10 +768,12 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
       wasted_bits++;
     }
 
-    std::cout << "\tWasted bits: " << wasted_bits << "\n";
+    std::cout << "\tWasted bits: " << static_cast<int>(wasted_bits) << "\n";
   }
 
   uint16_t adjusted_bit_depth = subframe_bit_depth - wasted_bits;
+
+  std::cout << "\tAdjusted bit depth: " << adjusted_bit_depth << "\n";
 
   if (subframe_type_bits == 0) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
@@ -1124,15 +1126,21 @@ int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 {
   if (bits == 0) { return 0; }
 
-  const uint32_t value = reader.read<uint32_t>(static_cast<uint_least8_t>(bits)).value();
+  if (bits < 1 || bits > 32) { throw std::invalid_argument("bits must be between 1 and 32"); }// NOLINT
+
+  const auto value = reader.read<uint32_t>(static_cast<uint_least8_t>(bits)).value();
   m_bits_read += bits;
 
-  uint32_t sign_bit = 1U << (bits - 1);// NOLINT
-  if (value & sign_bit) {// NOLINT
-    const uint32_t mask = (~0U) << bits;
-    return static_cast<int32_t>(value | mask);
+  if (bits == 32) { return static_cast<int32_t>(value); }// NOLINT
+
+  uint32_t sign_bit_mask = 1U << (bits - 1U);
+  uint32_t two_power = 1U << bits;
+
+  if (value & sign_bit_mask) {// NOLINT
+    int32_t result = static_cast<int32_t>(value) - static_cast<int32_t>(two_power);
+    return result;
   } else {
-    return static_cast<int>(value);
+    return static_cast<int32_t>(value);
   }
 }
 
@@ -1269,6 +1277,7 @@ uint32_t determineBlockSize(int block_size_bits)
 
   return block_size;
 }
+
 uint32_t determineSampleRate(int sample_rate_bits)
 {
   uint32_t sample_rate{};
