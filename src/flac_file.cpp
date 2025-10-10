@@ -888,10 +888,55 @@ bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader
   [[maybe_unused]] std::vector<int32_t> &samples,
   [[maybe_unused]] uint32_t block_size,// NOLINT
   [[maybe_unused]] uint16_t bit_depth,
-  [[maybe_unused]] uint8_t order,
+  [[maybe_unused]] uint8_t order,// NOLINT
   [[maybe_unused]] uint8_t wasted_bits)
 {
-  return false;
+  for (uint8_t i = 0; i < order; ++i) {
+    int32_t value = readSignedValue(reader, bit_depth);
+
+    if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
+
+    samples[i] = value;
+  }
+
+  // u(4) -> quantized linear predictor coeff
+  auto precision = reader.read<uint8_t>(4).value() + 1;
+  m_bits_read += 4;
+
+  if (precision == 16) {// NOLINT
+    std::cerr << "Invalid LPC precision.\n";
+    return false;
+  }
+
+  // u(5) ->
+  int8_t shift = static_cast<int8_t>(readSignedValue(reader, 5));// NOLINT
+
+  if (shift < 0) {
+    std::cerr << "Invalid LPC shift (negative)\n";
+    return false;
+  }
+
+  std::vector<int32_t> coefficients(order);
+  for (uint8_t i = 0; i < order; ++i) { coefficients[i] = readSignedValue(reader, uint16_t(precision)); }
+
+  std::vector<int32_t> residual(block_size - order);
+  if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
+
+  for (uint32_t i = order; i < block_size; ++i) {
+    int64_t prediction = 0;
+
+    for (uint8_t j = 0; j < order; ++j) { prediction += static_cast<int64_t>(coefficients[j]) * samples[i - j - 1]; }
+
+    prediction >>= shift;// NOLINT
+    samples[i] = residual[i - order] + static_cast<int32_t>(prediction);
+
+    if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
+  }
+
+  std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << precision << ", shift "
+            << static_cast<int>(shift) << "\n";
+
+  return true;
 }
 
 bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,

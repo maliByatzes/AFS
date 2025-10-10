@@ -94,7 +94,7 @@ private:
   bool decodeConstantSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
   bool decodeVerbatimSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t);
   bool decodeFixedSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
-  static bool decodeLPCSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
+  bool decodeLPCSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t, uint8_t, uint8_t);
   bool decodeResidual(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint8_t);
 
   bool decodeFrameFooter(etl::bit_stream_reader &);
