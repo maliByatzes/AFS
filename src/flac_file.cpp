@@ -855,8 +855,9 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
 
   std::cout << "\t\tDecoding coded residual.\n";
   std::vector<int32_t> residual(block_size - order);
-  if (!decodeResidual(reader, residual, block_size, order)) { return false; }
+  if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
 
+  std::cout << "\t\tLooping through block_size starting from order.\n";
   for (uint32_t i = order; i < block_size; ++i) {
     int32_t prediction = 0;
     const uint32_t idx = i - 1;
@@ -889,13 +890,16 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
   return true;
 }
 
-bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader,
-  [[maybe_unused]] std::vector<int32_t> &samples,
-  [[maybe_unused]] uint32_t block_size,// NOLINT
-  [[maybe_unused]] uint16_t bit_depth,
-  [[maybe_unused]] uint8_t order,// NOLINT
-  [[maybe_unused]] uint8_t wasted_bits)
+bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
+  std::vector<int32_t> &samples,
+  uint32_t block_size,// NOLINT
+  uint16_t bit_depth,
+  uint8_t order,// NOLINT
+  uint8_t wasted_bits)
 {
+  std::cout << "\t\tDecoding Linear Predictor Subframe:\n"
+            << "\t\tReading unencoded warm-up samples.\n";
+  // u(n) -> unencoded warm-up samples
   for (uint8_t i = 0; i < order; ++i) {
     int32_t value = readSignedValue(reader, bit_depth);
 
@@ -904,35 +908,49 @@ bool FlacFile::decodeLPCSubframe([[maybe_unused]] etl::bit_stream_reader &reader
     samples[i] = value;
   }
 
-  // u(4) -> quantized linear predictor coeff
-  auto precision = reader.read<uint8_t>(4).value() + 1;
+  // u(4) -> predictor coefficient precision in bits
+  auto precision = reader.read<uint8_t>(4).value();
   m_bits_read += 4;
 
-  if (precision == 16) {// NOLINT
-    std::cerr << "Invalid LPC precision.\n";
+  if (static_cast<int>(precision) == 15) {// NOLINT
+    std::cerr << "LPC precision of value 15 is invalid\n";
     return false;
   }
+  precision++;
 
-  // u(5) ->
+  std::cout << "\t\tLPC precision value: " << precision << "\n";
+
+  // s(5) -> prediction right shift needed in bits
   int8_t shift = static_cast<int8_t>(readSignedValue(reader, 5));// NOLINT
 
   if (shift < 0) {
-    std::cerr << "Invalid LPC shift (negative)\n";
+    std::cerr << "LCP shift must not be negative.\n";
     return false;
   }
 
+  std::cout << "\t\tLPC shift: " << shift << "\n";
+
+  std::cout << "\t\tReading coefficients.\n";
+  // s(n) -> predictor coefficients
   std::vector<int32_t> coefficients(order);
   for (uint8_t i = 0; i < order; ++i) { coefficients[i] = readSignedValue(reader, uint16_t(precision)); }
 
+  std::cout << "\t\tProcessing coded residuals.\n";
   std::vector<int32_t> residual(block_size - order);
   if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
 
+  std::cout << "\t\tLooping to block_size from order.\n";
   for (uint32_t i = order; i < block_size; ++i) {
     int64_t prediction = 0;
 
     for (uint8_t j = 0; j < order; ++j) { prediction += static_cast<int64_t>(coefficients[j]) * samples[i - j - 1]; }
 
-    prediction >>= shift;// NOLINT
+    prediction >>= uint8_t(shift);// NOLINT
+
+    if (prediction > INT32_MAX || prediction < INT32_MIN) {
+      std::cerr << "Warning: LPC prediction overflow after shift: " << prediction << "\n";
+    }
+
     samples[i] = residual[i - order] + static_cast<int32_t>(prediction);
 
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
@@ -972,9 +990,17 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     return false;
   }
 
-  if ((block_size >> uint(partition_order)) <= predictor_order) {
+  const uint32_t samples_per_partition = block_size >> uint(partition_order);
+  if (samples_per_partition <= predictor_order) {
     std::cerr << "Invalid data stream: block_size " << block_size << " >> partition_order " << partition_order
               << " is less than predictor_order " << predictor_order << "\n";
+    return false;
+  }
+
+  const uint32_t total_res_samples = block_size - predictor_order;
+
+  if (residual.size() != total_res_samples) {
+    std::cerr << "Residual buffer size mismatch: " << residual.size() << " vs expected " << total_res_samples << "\n";
     return false;
   }
 
@@ -985,9 +1011,14 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     uint32_t partition_samples{};
 
     if (part_idx == 0) {
-      partition_samples = (block_size >> uint(partition_order)) - predictor_order;
+      partition_samples = samples_per_partition - predictor_order;
     } else {
-      partition_samples = (block_size >> uint(partition_order));
+      partition_samples = samples_per_partition;
+    }
+
+    if (partition_samples == 0) {
+      std::cerr << "⚠️ Warning: partition " << part_idx << " has 0 samples.\n";
+      continue;
     }
 
     std::cout << "\t\t\tNumber of residual samples: " << partition_samples << "\n";
@@ -1009,13 +1040,28 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
       std::cout << "\t\t\tBps: " << bps << "\n";
 
       std::cout << "\t\t\tDecoding residual coding samples with signed value.\n";
-      for (uint32_t i = 0; i < partition_samples; ++i) { residual[sample_idx++] = readSignedValue(reader, bps); }
+      for (uint32_t i = 0; i < partition_samples; ++i) {
+        if (sample_idx >= residual.size()) {
+          std::cerr << "Residual buffer overflow at sample " << sample_idx << "\n";
+          return false;
+        }
+        residual[sample_idx++] = readSignedValue(reader, bps);
+      }
     } else {
       std::cout << "\t\t\tDecoding residual cding with rice signed value.\n";
       for (uint32_t i = 0; i < partition_samples; ++i) {
+        if (sample_idx >= residual.size()) {
+          std::cerr << "Residual buffer overflow at sample " << sample_idx << "\n";
+          return false;
+        }
         residual[sample_idx++] = readRiceSignedValue(reader, rice_param);
       }
     }
+  }
+
+  if (sample_idx != total_res_samples) {
+    std::cerr << "Residual sample count mismatch: decoded " << sample_idx << ", expected " << total_res_samples << "\n";
+    return false;
   }
 
   std::cout << "\t\t\tDecoded residual: " << (block_size - predictor_order) << " samples, " << num_partitions
