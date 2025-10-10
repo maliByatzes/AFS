@@ -778,7 +778,7 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
   if (subframe_type_bits == 0) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
 
-    return decodeConstantSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
+    return decodeConstantSubframe(reader, ch_data, adjusted_bit_depth, wasted_bits);
   } else if (subframe_type_bits == 1) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
 
@@ -803,15 +803,14 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
 
 bool FlacFile::decodeConstantSubframe(etl::bit_stream_reader &reader,
   std::vector<int32_t> &samples,
-  uint32_t block_size,// NOLINT
-  uint16_t bit_depth,
+  uint16_t bit_depth,// NOLINT
   uint8_t wasted_bits)
 {
   int32_t value = readSignedValue(reader, bit_depth);
 
   if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
 
-  for (uint32_t i = 0; i < block_size; ++i) { samples[i] = value; }
+  for (auto &sample : samples) { sample = value; }
 
   std::cout << "\t\tConstant value: " << value << "\n";
   return true;
