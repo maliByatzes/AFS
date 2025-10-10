@@ -15,7 +15,12 @@ Checks: "*,
         -misc-non-private-member-variables-in-classes,
         -misc-no-recursion,
         -misc-use-anonymous-namespace,
-        -misc-use-internal-linkage
+        -misc-use-internal-linkage,
+        -readability-magic-numbers,
+        -readability-function-cognitive-complexity,
+        -cppcoreguidelines-avoid-magic-numbers,
+        -bugprone-easily-swappable-parameters,
+        -cppcoreguidelines-pro-type-reinterpret-cast
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

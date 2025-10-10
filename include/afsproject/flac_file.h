@@ -101,15 +101,12 @@ private:
 
   bool decodeFlacFile();
 
-  bool encodeFlacFile();
+  static bool encodeFlacFile();
 
   std::optional<uint64_t> readUTF8(etl::bit_stream_reader &);
   int32_t readSignedValue(etl::bit_stream_reader &, uint16_t);
   int32_t readRiceSignedValue(etl::bit_stream_reader &, uint32_t);
 };
-
-std::bitset<THIRTY_TWO> extract_from_lsb(const std::bitset<THIRTY_TWO> &, size_t, int);
-std::bitset<THIRTY_TWO> extract_from_msb(const std::bitset<THIRTY_TWO> &, size_t, int);
 
 std::string determinePictureTypeStr(uint32_t);
 uint32_t determineBlockSize(int);
