@@ -183,17 +183,17 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   auto sample_rate = reader.read<uint32_t>(20).value();
   m_bits_read += 20;
   // u(3) -> number of channels - 1
-  auto num_channels = static_cast<int>(reader.read<uint8_t>(3).value());
+  auto num_channels = static_cast<int>(reader.read<uint8_t>(3).value()) + 1;
   m_bits_read += 3;
   // u(5) -> bits per sample - 1
-  auto bits_per_samples = static_cast<int>(reader.read<uint8_t>(5).value());
+  auto bits_per_samples = static_cast<int>(reader.read<uint8_t>(5).value()) + 1;
   m_bits_read += 5;
   // u(36) -> total number of interchannel samples
   auto total_samples = reader.read<uint64_t>(36).value();
   m_bits_read += 36;
 
   // u(128) -> MD5 checksum -> skip
-  reader.skip(28);
+  reader.skip(128);
   m_bits_read += 128;
 
   std::cout << "STREAMINFO:\n"
@@ -581,6 +581,8 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   // TODO: read frame footer
 
+  // TODO: validate MD-5 checksum
+
   return true;
 }
 
@@ -647,7 +649,7 @@ std::optional<FrameHeader> FlacFile::decodeFrameHeader(etl::bit_stream_reader &r
     return std::nullopt;
   }
 
-  // UTF-8 coded sampl/frame number (coded number)
+  // UTF-8 coded sample/frame number (coded number)
   uint64_t coded_number = 0;
   if (strategy_bit == 0) {
     // fixed
