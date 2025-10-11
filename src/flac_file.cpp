@@ -600,17 +600,20 @@ bool FlacFile::seekToNextFrame(etl::bit_stream_reader &reader)
 
     if (byte == 0xFF) {
       if ((reader.size_bits() - m_bits_read) >= 8) {
-        const size_t pos_before = m_bits_read;
+        const uint32_t pos_before = m_bits_read;
 
         auto next_bits = reader.read<uint8_t>(7).value();
-        if (next_bits == 0x7F) {
+        m_bits_read += 7;
+        if (next_bits == 0x7C) {
           reader.restart();
           reader.skip(pos_before - 15);
+          m_bits_read = pos_before - 15;
           std::cout << "Found sync code at position " << (pos_before - 15) << "\n";
           return true;
         } else {
           reader.restart();
           reader.skip(pos_before);
+          m_bits_read = pos_before;
         }
       }
     }
@@ -641,12 +644,16 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   storeSamples(channel_data.value());
 
-  const size_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
-  if (bits_to_align > 0) { reader.skip(bits_to_align); }
+  const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
+  if (bits_to_align > 0) {
+    reader.skip(bits_to_align);
+    m_bits_read += bits_to_align;
+  }
 
-  // TODO: read frame footer
-
-  // TODO: validate MD-5 checksum
+  if (!decodeFrameFooter(reader)) {
+    std::cerr << "Failed to decode frame footer.\n";
+    return false;
+  }
 
   return true;
 }
@@ -1135,6 +1142,16 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
   }
 
   std::cout << "\t\t\tSuccessfully decoded " << total_res_samples << " residual samples.\n";
+  return true;
+}
+
+bool FlacFile::decodeFrameFooter(etl::bit_stream_reader &reader)
+{
+  auto crc16 = reader.read<uint16_t>(16).value();
+  m_bits_read += 16;
+
+  std::cout << "\tFrame footer CRC-16: 0x" << std::hex << crc16 << std::dec << "\n";
+
   return true;
 }
 
