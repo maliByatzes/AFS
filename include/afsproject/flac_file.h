@@ -2,7 +2,6 @@
 #define flac_file_h_
 
 #include <afsproject/audio_file.h>
-#include <bitset>
 #include <cstdint>
 #include <etl/bit_stream.h>
 #include <optional>
@@ -12,17 +11,7 @@ namespace afs {
 
 const int THIRTY_TWO = 32;
 
-/*
-enum class MetadataBlockType : uint8_t {
-  STREAM_INFO = 0,
-  PADDING = 1,
-  APPLICATION = 2,
-  SEEK_TABLE = 3,
-  VORBIS_COMMENT = 4,
-  CUE_SHEET = 5,
-  PICTURE = 6,
-  FORBIDDEN = 127
-};*/
+using Subframes = std::vector<std::vector<int32_t>>;
 
 struct StreamInfo
 {
@@ -85,10 +74,11 @@ private:
 
   bool decodeFrames(etl::bit_stream_reader &);
   bool decodeFrame(etl::bit_stream_reader &);
+  bool seekToNextFrame(etl::bit_stream_reader &);
 
   std::optional<FrameHeader> decodeFrameHeader(etl::bit_stream_reader &);
 
-  bool decodeSubframes(etl::bit_stream_reader &, FrameHeader &);
+  std::optional<Subframes> decodeSubframes(etl::bit_stream_reader &, FrameHeader &);
   bool decodeSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
   bool decodeSubframeHeader(etl::bit_stream_reader &, std::vector<int32_t> &, uint32_t, uint16_t);
   bool decodeConstantSubframe(etl::bit_stream_reader &, std::vector<int32_t> &, uint16_t, uint8_t);
@@ -106,6 +96,9 @@ private:
   std::optional<uint64_t> readUTF8(etl::bit_stream_reader &);
   int32_t readSignedValue(etl::bit_stream_reader &, uint16_t);
   int32_t readRiceSignedValue(etl::bit_stream_reader &, uint32_t);
+  static bool decorrelateChannels(std::vector<std::vector<int32_t>> &, int);
+  bool isSyncCode(etl::bit_stream_reader &) const;
+  void storeSamples(const std::vector<std::vector<int32_t>> &);
 };
 
 std::string determinePictureTypeStr(uint32_t);

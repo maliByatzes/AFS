@@ -547,23 +547,79 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
 
 bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 {
-  std::cout << "Decoding frames...\n";
+  int frame_count = 0;
 
   while (m_bits_read < reader.size_bits()) {
+    std::cout << "\n=== Decoding Frame " << frame_count << " ===\n";
+
     try {
       if (!decodeFrame(reader)) {
-        std::cerr << "Failed to decode frame.\n";
-        return false;
+        std::cerr << "Failed to decode frame " << frame_count << "\n";
+
+        if (!seekToNextFrame(reader)) {
+          std::cerr << "Could not find next frame, stopping.\n";
+          break;
+        }
+
+        continue;
       }
+
+      frame_count++;
     } catch (const std::exception &e) {
-      std::cerr << "Exception while decoding frame: " << e.what() << "\n";
-      return false;
+      std::cerr << "Exception while decoding frame: " << frame_count << ": " << e.what() << "\n";
+
+      if (!seekToNextFrame(reader)) {
+        std::cerr << "Could not recover, stopping.\n";
+        break;
+      }
     }
   }
 
-  std::cout << "Successfully decoded all frames.\n";
+  std::cout << "\nSuccessfully decoded " << frame_count << " frames.\n";
+  std::cout << "Total PCM samples: " << m_pcm_data.size() << "\n";
 
-  return true;
+  return frame_count > 0;
+}
+
+bool FlacFile::seekToNextFrame(etl::bit_stream_reader &reader)
+{
+  std::cout << "Attempting to find next frame sync code.\n";
+
+  const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
+  if (bits_to_align > 0) {
+    reader.skip(bits_to_align);
+    m_bits_read += bits_to_align;
+  }
+
+  auto max_search = static_cast<size_t>(1024 * 16);
+  size_t searched = 0;
+
+  while ((reader.size_bits() - m_bits_read) >= 16 && searched < max_search) {
+    auto byte = reader.read<uint8_t>(8).value();
+    m_bits_read += 8;
+
+    if (byte == 0xFF) {
+      if ((reader.size_bits() - m_bits_read) >= 8) {
+        const size_t pos_before = m_bits_read;
+
+        auto next_bits = reader.read<uint8_t>(7).value();
+        if (next_bits == 0x7F) {
+          reader.restart();
+          reader.skip(pos_before - 15);
+          std::cout << "Found sync code at position " << (pos_before - 15) << "\n";
+          return true;
+        } else {
+          reader.restart();
+          reader.skip(pos_before);
+        }
+      }
+    }
+
+    searched += 8;
+  }
+
+  std::cerr << "Could not find sync code within search limits.\n";
+  return false;
 }
 
 bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
@@ -572,12 +628,21 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
   auto frame_header = decodeFrameHeader(reader);
   if (!frame_header.has_value()) { return false; }
 
-  // TODO: decode subframes for each channel
-  if (!decodeSubframes(reader, frame_header.value())) { return false; }
+  // decode subframes for each channel
+  auto channel_data = decodeSubframes(reader, frame_header.value());
+  if (!channel_data.has_value()) { return false; }
 
-  // TODO: handle stereo decorrelation for letf/side, right/side, mid/side
+  if (frame_header.value().channel_bits >= 8 && frame_header.value().channel_bits <= 10) {
+    if (!decorrelateChannels(channel_data.value(), frame_header.value().channel_bits)) {
+      std::cerr << "Failed to decorrelate channels.\n";
+      return false;
+    }
+  }
 
-  // TODO: zero-pad to byte alignment
+  storeSamples(channel_data.value());
+
+  const size_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
+  if (bits_to_align > 0) { reader.skip(bits_to_align); }
 
   // TODO: read frame footer
 
@@ -706,7 +771,7 @@ std::optional<FrameHeader> FlacFile::decodeFrameHeader(etl::bit_stream_reader &r
   return frame_header;
 }
 
-bool FlacFile::decodeSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
+std::optional<Subframes> FlacFile::decodeSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
 {
   std::cout << "Decoding subframes.\n";
 
@@ -716,22 +781,25 @@ bool FlacFile::decodeSubframes(etl::bit_stream_reader &reader, FrameHeader &fram
     channel_data[i].resize(frame_header.block_size);
 
     uint16_t subframe_bit_depth = frame_header.bit_depth;
-    if ((frame_header.channel_bits == 8 && i == 1) || (frame_header.channel_bits == 9 && i == 0)
-        || (frame_header.channel_bits == 10 && i == 1)) {
+    if (frame_header.channel_bits == 8 && i == 1) {// NOLINT
+      subframe_bit_depth = frame_header.bit_depth + 1;
+    } else if (frame_header.channel_bits == 9 && i == 0) {
+      subframe_bit_depth = frame_header.bit_depth + 1;
+    } else if (frame_header.channel_bits == 10 && i == 1) {
       subframe_bit_depth = frame_header.bit_depth + 1;
     }
 
     if (!decodeSubframe(reader, channel_data[i], frame_header.block_size, subframe_bit_depth)) {
-      std::cerr << "Failed to decode subframe.\n";
-      return false;
+      std::cerr << "Failed to decode subframe " << i << "\n";
+      return std::nullopt;
     }
   }
 
-  return true;
+  return channel_data;
 }
 
 bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
-  std::vector<int32_t> &ch_data,
+  std::vector<int32_t> &samples,
   uint32_t block_size,
   uint16_t subframe_bit_depth)
 {
@@ -777,21 +845,21 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
   if (subframe_type_bits == 0) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
 
-    return decodeConstantSubframe(reader, ch_data, adjusted_bit_depth, wasted_bits);
+    return decodeConstantSubframe(reader, samples, adjusted_bit_depth, wasted_bits);
   } else if (subframe_type_bits == 1) {
     std::cout << "\tDecoding " << subframe_type << ":\n";
 
-    return decodeVerbatimSubframe(reader, ch_data, block_size, adjusted_bit_depth, wasted_bits);
+    return decodeVerbatimSubframe(reader, samples, block_size, adjusted_bit_depth, wasted_bits);
   } else if (subframe_type_bits >= 8 && subframe_type_bits <= 12) {
     const uint8_t order = uint(subframe_type_bits) & 0x07U;
     std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
 
-    return decodeFixedSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
+    return decodeFixedSubframe(reader, samples, block_size, adjusted_bit_depth, order, wasted_bits);
   } else if (subframe_type_bits >= 32) {
     const uint8_t order = (uint(subframe_type_bits) & 0x1FU) + 1;
     std::cout << "\tDecoding " << subframe_type << " (" << static_cast<int>(order) << "):\n";
 
-    return decodeLPCSubframe(reader, ch_data, block_size, adjusted_bit_depth, order, wasted_bits);
+    return decodeLPCSubframe(reader, samples, block_size, adjusted_bit_depth, order, wasted_bits);
   } else {
     std::cerr << "Reserved subframe type: " << subframe_type_bits << "\n";
 
@@ -957,8 +1025,8 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
   }
 
-  std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << precision << ", shift "
-            << static_cast<int>(shift) << "\n";
+  std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << static_cast<int>(precision)
+            << ", shift " << static_cast<int>(shift) << "\n";
 
   return true;
 }
@@ -982,12 +1050,11 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
   auto partition_order = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;
   const uint32_t num_partitions = 1U << uint(partition_order);
-  std::cout << "\t\t\tPartition order: " << partition_order << "\n\t\t\tNumber of partitions: " << num_partitions
-            << "\n";
+  std::cout << "\t\t\tPartition order: " << partition_order << " (" << num_partitions << " partitions)\n";
 
   if (block_size % num_partitions != 0) {
-    std::cerr << "Invalid data stream: block_size " << block_size << " is not divisible by number of partitions "
-              << num_partitions << "\n";
+    std::cerr << "Invalid data stream: block_size " << block_size << " is not divisible by " << num_partitions
+              << " partitions\n";
     return false;
   }
 
@@ -1035,10 +1102,10 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     std::cout << "\t\t\tEscape code: " << escape_code << "\n";
 
     if (rice_param == escape_code) {
-      // u(5) ->
+      // u(5) -> unencoded binary partition
       auto bps = reader.read<uint8_t>(5).value();
       m_bits_read += 5;
-      std::cout << "\t\t\tBps: " << bps << "\n";
+      std::cout << "\t\t\tUnencoded partition: " << static_cast<int>(bps) << " bps\n";
 
       std::cout << "\t\t\tDecoding residual coding samples with signed value.\n";
       for (uint32_t i = 0; i < partition_samples; ++i) {
@@ -1049,7 +1116,9 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
         residual[sample_idx++] = readSignedValue(reader, bps);
       }
     } else {
-      std::cout << "\t\t\tDecoding residual cding with rice signed value.\n";
+      std::cout << "\t\t\tDecoding residual coding with rice signed value.\n";
+      std::cout << "\t\t\tRice parameter: " << rice_param << "\n";
+
       for (uint32_t i = 0; i < partition_samples; ++i) {
         if (sample_idx >= residual.size()) {
           std::cerr << "Residual buffer overflow at sample " << sample_idx << "\n";
@@ -1065,8 +1134,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     return false;
   }
 
-  std::cout << "\t\t\tDecoded residual: " << (block_size - predictor_order) << " samples, " << num_partitions
-            << " partitions\n";
+  std::cout << "\t\t\tSuccessfully decoded " << total_res_samples << " residual samples.\n";
   return true;
 }
 
@@ -1238,6 +1306,79 @@ int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t p
   } else {
     return static_cast<int32_t>(value >> 1U);
   }
+}
+
+bool FlacFile::decorrelateChannels(std::vector<std::vector<int32_t>> &channels, int channel_assignment)
+{
+  if (channels.size() != 2) {
+    std::cerr << "Decorrelation requires exactly 2 channels.\n";
+    return false;
+  }
+
+  const size_t num_samples = channels[0].size();
+
+  switch (channel_assignment) {
+  case 8:
+    for (size_t i = 0; i < num_samples; ++i) { channels[1][i] = channels[0][i] - channels[1][i]; }
+    break;
+  case 9:
+    for (size_t i = 0; i < num_samples; ++i) { channels[0][i] = channels[1][i] + channels[0][i]; }
+    break;
+  case 10:
+    for (size_t i = 0; i < num_samples; ++i) {
+      const int32_t mid = channels[0][i];
+      const int32_t side = channels[1][i];
+
+      int32_t left = mid + (side >> 1);// NOLINT
+      int32_t right = mid - (side >> 1);// NOLINT
+
+      if (bool(side & 1)) {// NOLINT
+        left += (side > 0) ? 0 : 1;
+        right += (side > 0) ? -1 : 0;
+      }
+
+      channels[0][i] = left;
+      channels[1][i] = right;
+    }
+    break;
+  default:
+    break;
+  }
+
+  std::cout << "\t\tDecorrelated channels (mode " << channel_assignment << "\n";
+  return true;
+}
+
+bool FlacFile::isSyncCode(etl::bit_stream_reader &reader) const
+{
+  const size_t current_pos = m_bits_read;
+
+  if ((reader.size_bits() - m_bits_read) < 15) { return false; }
+
+  auto sync = reader.read<uint16_t>(15);
+  if (!sync.has_value()) { return false; }
+
+  reader.restart();
+  reader.skip(current_pos);
+
+  return sync.value() == 0x7FFC;
+}
+
+void FlacFile::storeSamples(const std::vector<std::vector<int32_t>> &channel_data)
+{
+  const size_t num_samples = channel_data[0].size();
+  const size_t num_channels = channel_data.size();
+
+  const double norm_factor = 1.0 / (1U << (m_bit_depth - 1U));
+
+  for (size_t i = 0; i < num_samples; ++i) {
+    for (size_t chn = 0; chn < num_channels; ++chn) {
+      const double normalized_sample = channel_data[chn][i] * norm_factor;
+      m_pcm_data.push_back(normalized_sample);
+    }
+  }
+
+  std::cout << "Stored " << num_samples << " samples x " << num_channels << " channels.\n";
 }
 
 /*
