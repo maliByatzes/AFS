@@ -556,22 +556,24 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
       if (!decodeFrame(reader)) {
         std::cerr << "Failed to decode frame " << frame_count << "\n";
 
+        /*
         if (!seekToNextFrame(reader)) {
           std::cerr << "Could not find next frame, stopping.\n";
           break;
-        }
+        }*/
 
-        continue;
+        break;
       }
 
       frame_count++;
     } catch (const std::exception &e) {
       std::cerr << "Exception while decoding frame: " << frame_count << ": " << e.what() << "\n";
 
+      /*
       if (!seekToNextFrame(reader)) {
         std::cerr << "Could not recover, stopping.\n";
         break;
-      }
+      }*/
     }
   }
 
@@ -780,8 +782,6 @@ std::optional<FrameHeader> FlacFile::decodeFrameHeader(etl::bit_stream_reader &r
 
 std::optional<Subframes> FlacFile::decodeSubframes(etl::bit_stream_reader &reader, FrameHeader &frame_header)
 {
-  std::cout << "Decoding subframes.\n";
-
   std::vector<std::vector<int32_t>> channel_data(frame_header.num_channels);
 
   for (uint16_t i = 0; i < frame_header.num_channels; ++i) {
@@ -796,6 +796,7 @@ std::optional<Subframes> FlacFile::decodeSubframes(etl::bit_stream_reader &reade
       subframe_bit_depth = frame_header.bit_depth + 1;
     }
 
+    std::cout << "\n=== Decoding a subframe " << i << " ===\n";
     if (!decodeSubframe(reader, channel_data[i], frame_header.block_size, subframe_bit_depth)) {
       std::cerr << "Failed to decode subframe " << i << "\n";
       return std::nullopt;
@@ -810,8 +811,6 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
   uint32_t block_size,
   uint16_t subframe_bit_depth)
 {
-  std::cout << "Decoding a subframe.\n";
-
   // decode subframe header
   std::cout << "Subframe Header:\n";
   // u(1) -> reserved bit (must be 0)
@@ -928,7 +927,7 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
 
   std::cout << "\t\tDecoding coded residual.\n";
   std::vector<int32_t> residual(block_size - order);
-  if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
+  if (!decodeResidual(reader, residual, block_size, order)) { return false; }
 
   std::cout << "\t\tLooping through block_size starting from order.\n";
   for (uint32_t i = order; i < block_size; ++i) {
@@ -985,10 +984,10 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
   }
 
   // u(4) -> predictor coefficient precision in bits
-  auto precision = reader.read<uint8_t>(4).value();
+  auto precision = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;
 
-  if (static_cast<int>(precision) == 15) {
+  if (precision == 15) {
     std::cerr << "LPC precision of value 15 is invalid\n";
     return false;
   }
@@ -1004,7 +1003,7 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
     return false;
   }
 
-  std::cout << "\t\tLPC shift: " << shift << "\n";
+  std::cout << "\t\tLPC shift: " << static_cast<int>(shift) << "\n";
 
   std::cout << "\t\tReading coefficients.\n";
   // s(n) -> predictor coefficients
@@ -1013,7 +1012,7 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
 
   std::cout << "\t\tProcessing coded residuals.\n";
   std::vector<int32_t> residual(block_size - order);
-  if (!decodeResidual(reader, residual, block_size - order, order)) { return false; }
+  if (!decodeResidual(reader, residual, block_size, order)) { return false; }
 
   std::cout << "\t\tLooping to block_size from order.\n";
   for (uint32_t i = order; i < block_size; ++i) {
@@ -1032,8 +1031,8 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
   }
 
-  std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << static_cast<int>(precision)
-            << ", shift " << static_cast<int>(shift) << "\n";
+  std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << precision << ", shift "
+            << static_cast<int>(shift) << "\n";
 
   return true;
 }
@@ -1102,7 +1101,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     auto rice_param = reader.read<uint32_t>(uint_least8_t(rice_param_bits)).value();
     m_bits_read += rice_param_bits;
 
-    std::cout << "\t\t\tRice parameter: " << rice_param << " (" << rice_param_bits << ").\n";
+    std::cout << "\t\t\tRice parameter: " << rice_param << " (" << static_cast<int>(rice_param_bits) << ").\n";
 
     const uint32_t escape_code = (coding_method == 0) ? 15 : 31;
 
@@ -1150,7 +1149,7 @@ bool FlacFile::decodeFrameFooter(etl::bit_stream_reader &reader)
   auto crc16 = reader.read<uint16_t>(16).value();
   m_bits_read += 16;
 
-  std::cout << "\tFrame footer CRC-16: 0x" << std::hex << crc16 << std::dec << "\n";
+  std::cout << "Frame footer CRC-16: 0x" << std::hex << crc16 << std::dec << "\n";
 
   return true;
 }
@@ -1362,7 +1361,7 @@ bool FlacFile::decorrelateChannels(std::vector<std::vector<int32_t>> &channels, 
     break;
   }
 
-  std::cout << "\t\tDecorrelated channels (mode " << channel_assignment << "\n";
+  std::cout << "\t\tDecorrelated channels (mode " << channel_assignment << ")\n";
   return true;
 }
 
@@ -1610,7 +1609,7 @@ std::string determineSubframeType(int subframe_type_bits)
   } else if (subframe_type_bits >= 8 && subframe_type_bits <= 12) {
     subframe_type = "Subframe with a fixed predictor of order " + std::to_string(subframe_type_bits - 8);
   } else if (subframe_type_bits >= 32 && subframe_type_bits <= 63) {
-    subframe_type = "Subframe with a fixed predictor of order " + std::to_string(subframe_type_bits - 31);
+    subframe_type = "Subframe with a linear predictor of order " + std::to_string(subframe_type_bits - 31);
   }
 
   return subframe_type;
