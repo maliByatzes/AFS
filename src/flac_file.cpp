@@ -13,8 +13,6 @@
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
-#include <unordered_map>
-#include <utility>
 #include <vector>
 
 // NOTE/TODO: should probably write the implementation somewhere
@@ -289,7 +287,7 @@ bool FlacFile::decodeApplication(etl::bit_stream_reader &reader, uint32_t block_
 bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_size)
 {
   const uint32_t num_of_seek_points = block_size / 18;
-  std::unordered_map<uint64_t, std::pair<uint64_t, uint16_t>> seek_points;
+  // std::unordered_map<uint64_t, std::pair<uint64_t, uint16_t>> seek_points;
 
   std::cout << "SEEKTABLE:\n";
   std::cout << " Number of seek points: " << num_of_seek_points << "\n";
@@ -307,10 +305,10 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
     m_bits_read += 16;
 
     std::cout << "\tSeekpoint " << i << ": sample=" << sample_number << ", offset=" << offset
-              << ", samples=" << num_samples << "\n";
+              << ", number of samples=" << num_samples << "\n";
 
     // TODO: store these if needed, later.
-    seek_points.insert({ sample_number, std::make_pair(offset, num_samples) });
+    // seek_points.insert({ sample_number, std::make_pair(offset, num_samples) });
   }
 
   return true;
@@ -646,8 +644,10 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   storeSamples(channel_data.value());
 
+  std::cout << "current number of bits read: " << m_bits_read << "\n";
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
   if (bits_to_align > 0) {
+    std::cout << "We must byte align.\n";
     reader.skip(bits_to_align);
     m_bits_read += bits_to_align;
   }
@@ -955,9 +955,15 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
       return false;
     }
 
+    std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
+
     samples[i] = residual[i - order] + prediction;
 
+    std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
+
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
+
+    std::cout << "\t\tsample after shift = " << samples[i] << "\n";
   }
 
   std::cout << "\t\tDecoded FIXED order " << static_cast<int>(order) << "\n";
@@ -1055,6 +1061,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
   // u(4) -> partition order
   auto partition_order = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;
+
   const uint32_t num_partitions = 1U << uint(partition_order);
   std::cout << "\t\t\tPartition order: " << partition_order << " (" << num_partitions << " partitions)\n";
 
@@ -1065,6 +1072,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
   }
 
   const uint32_t samples_per_partition = block_size >> uint(partition_order);
+
   if (samples_per_partition <= predictor_order) {
     std::cerr << "Invalid data stream: block_size " << block_size << " >> partition_order " << partition_order
               << " is less than predictor_order " << predictor_order << "\n";
@@ -1303,11 +1311,13 @@ int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 
 int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t param)
 {
+  std::cout << "\n\t\t\tRead rice signed values.\n";
   uint32_t quotient = 0;
   while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) {
     m_bits_read++;
     quotient++;
   }
+  std::cout << "\t\t\tqoutient = " << quotient << "\n";
 
   uint32_t remainder = 0;
   if (param > 0) {
@@ -1315,12 +1325,20 @@ int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t p
     m_bits_read += param;
   }
 
+  std::cout << "\t\t\tremainder = " << remainder << "\n";
+
   const uint32_t value = (quotient << param) | remainder;
 
+  std::cout << "\t\t\tzigzag unencoded value = " << value << "\n";
+
   if (bool(value & 1U)) {
-    return -static_cast<int32_t>((value + 1) >> 1U);
+    auto value2 = -static_cast<int32_t>((value + 1) >> 1U);
+    std::cout << "\t\t\tresidual sample value1 = " << value2 << "\n";
+    return value2;
   } else {
-    return static_cast<int32_t>(value >> 1U);
+    auto value2 = static_cast<int32_t>(value >> 1U);
+    std::cout << "\t\t\tresidual sample value2 = " << value2 << "\n";
+    return value2;
   }
 }
 

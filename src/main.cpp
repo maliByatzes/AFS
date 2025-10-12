@@ -1,8 +1,8 @@
-#include <afsproject/db.h>
-#include <afsproject/afs.h>
+// #include <afsproject/afs.h>
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
-#include <exception>
+#include <afsproject/db.h>
+// #include <exception>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -60,6 +60,8 @@ void processAudioFile(const std::string &filepath)
     return;
   }
 
+  // disable adding songs to database for now
+  /*
   try {
     SQLiteDB my_db("afs.db");
 
@@ -74,7 +76,7 @@ void processAudioFile(const std::string &filepath)
   } catch (const std::exception &e) {
     std::cerr << "An unrecoverable error occurred: " << e.what() << "\n";
     return;
-  }
+  }*/
 }
 
 void printHelp()
