@@ -485,7 +485,7 @@ bool FlacFile::decodePicture(etl::bit_stream_reader &reader, [[maybe_unused]] ui
     mime_type += static_cast<char>(chr);
   }
 
-  std::cout << " Mime type: " << mime_type << "\n";
+  std::cout << " Mime type: " << mime_type << " (" << mime_type.size() << ")\n";
 
   // u(32) -> length of description string
   auto desc_length = reader.read<uint32_t>(32).value();
@@ -540,6 +540,7 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 {
   int frame_count = 0;
 
+  std::cout << "\nbit read be4 starting on frames: " << m_bits_read << "\n";
   while (m_bits_read < reader.size_bits()) {
     std::cout << "\n=== Decoding Frame " << frame_count << " ===\n";
 
