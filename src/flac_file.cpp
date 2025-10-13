@@ -250,19 +250,12 @@ bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size
 {
   const uint num = block_size * 8;
 
-  if (num % 8 != 0) {
-    std::cerr << "n is not a multiple of 8: " << num << ".\n";
-    return false;
-  }
-
   // u(n) -> n "0" bits
-  // auto space = reader.read<uint64_t>(static_cast<uint_least8_t>(n)).value();
+  auto space = reader.read<uint64_t>(uint_least8_t(num)).value();
+  m_bits_read += num;
 
   std::cout << "PADDING:\n"
-            << " Space: " << num << "\n";
-
-  reader.skip(num);
-  m_bits_read += num;
+            << " Space: " << space << "\n";
 
   return true;
 }
@@ -644,7 +637,6 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   storeSamples(channel_data.value());
 
-  std::cout << "current number of bits read: " << m_bits_read << "\n";
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
   if (bits_to_align > 0) {
     std::cout << "We must byte align.\n";
@@ -836,10 +828,9 @@ bool FlacFile::decodeSubframe(etl::bit_stream_reader &reader,
   if (is_wasted_bits == 1) {
     wasted_bits = 1;
 
-    while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) {
-      m_bits_read += 1;
-      wasted_bits++;
-    }
+    while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) { wasted_bits++; }
+
+    m_bits_read += wasted_bits;
 
     std::cout << "\tWasted bits: " << static_cast<int>(wasted_bits) << "\n";
   }
@@ -1313,10 +1304,8 @@ int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t p
 {
   std::cout << "\n\t\t\tRead rice signed values.\n";
   uint32_t quotient = 0;
-  while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) {
-    m_bits_read++;
-    quotient++;
-  }
+  while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) { quotient++; }
+  m_bits_read += (quotient + 1);
   std::cout << "\t\t\tqoutient = " << quotient << "\n";
 
   uint32_t remainder = 0;
