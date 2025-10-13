@@ -637,6 +637,7 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   storeSamples(channel_data.value());
 
+  std::cout << "bits read: " << m_bits_read << "\n";
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
   if (bits_to_align > 0) {
     std::cout << "We must byte align.\n";
@@ -977,6 +978,7 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
 
     if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
 
+    std::cout << "\t\t\tsample = " << value << "\n";
     samples[i] = value;
   }
 
@@ -1005,7 +1007,10 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
   std::cout << "\t\tReading coefficients.\n";
   // s(n) -> predictor coefficients
   std::vector<int32_t> coefficients(order);
-  for (uint8_t i = 0; i < order; ++i) { coefficients[i] = readSignedValue(reader, uint16_t(precision)); }
+  for (uint8_t i = 0; i < order; ++i) {
+    coefficients[i] = readSignedValue(reader, uint16_t(precision));
+    std::cout << "\t\tcoffecient=" << coefficients[i] << "\n";
+  }
 
   std::cout << "\t\tProcessing coded residuals.\n";
   std::vector<int32_t> residual(block_size - order);
@@ -1022,10 +1027,14 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
     if (prediction > INT32_MAX || prediction < INT32_MIN) {
       std::cerr << "Warning: LPC prediction overflow after shift: " << prediction << "\n";
     }
+    std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
 
     samples[i] = residual[i - order] + static_cast<int32_t>(prediction);
 
+    std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
+
+    std::cout << "\t\tsample after shift = " << samples[i] << "\n";
   }
 
   std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << precision << ", shift "
@@ -1094,7 +1103,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
       continue;
     }
 
-    std::cout << "\t\t\tNumber of residual samples: " << partition_samples << "\n";
+    std::cout << "\n\t\t\tNumber of residual samples: " << partition_samples << "\n";
 
     const uint8_t rice_param_bits = (coding_method == 0) ? 4 : 5;
     auto rice_param = reader.read<uint32_t>(uint_least8_t(rice_param_bits)).value();
@@ -1280,12 +1289,14 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
 
 int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 {
+  std::cout << "\n\t\t\tRead signed values.\n";
   if (bits == 0) { return 0; }
 
   if (bits < 1 || bits > 32) { throw std::invalid_argument("bits must be between 1 and 32"); }
 
   const auto value = reader.read<uint32_t>(static_cast<uint_least8_t>(bits)).value();
   m_bits_read += bits;
+  std::cout << "\t\t\tvalue=" << value << "\n";
 
   if (bits == 32) { return static_cast<int32_t>(value); }
 
@@ -1294,8 +1305,10 @@ int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 
   if (bool(value & sign_bit_mask)) {
     const int32_t result = static_cast<int32_t>(value) - static_cast<int32_t>(two_power);
+    std::cout << "\t\t\tresult1=" << result << "\n";
     return result;
   } else {
+    std::cout << "\t\t\tresult2=" << static_cast<int32_t>(value) << "\n";
     return static_cast<int32_t>(value);
   }
 }
