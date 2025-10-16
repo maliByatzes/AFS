@@ -2,6 +2,7 @@
 #define flac_file_h_
 
 #include <afsproject/audio_file.h>
+#include <array>
 #include <cstdint>
 #include <etl/bit_stream.h>
 #include <optional>
@@ -62,6 +63,7 @@ private:
   std::vector<uint8_t> m_file_data;
   uint32_t m_channel_mask;
   uint32_t m_bits_read;
+  std::array<uint8_t, 16> m_md5_checksum;
   // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);

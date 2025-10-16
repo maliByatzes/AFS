@@ -1,4 +1,5 @@
 #include <afsproject/flac_file.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -191,7 +192,12 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   m_bits_read += 36;
 
   // u(128) -> MD5 checksum -> skip
-  reader.skip(128);
+  std::array<uint8_t, 16> md5_checksum{};
+  for (size_t i = 0; i < 16; ++i) {
+    auto byte = reader.read<uint8_t>(8).value();
+    md5_checksum.at(i) = byte;
+  }
+  m_md5_checksum = md5_checksum;
   m_bits_read += 128;
 
   std::cout << "STREAMINFO:\n"
@@ -203,7 +209,11 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Sample rate: " << sample_rate << "\n"
             << " Channels: " << num_channels << "\n"
             << " Bits per sample: " << bits_per_samples << "\n"
-            << " Total samples: " << total_samples << "\n";
+            << " Total samples: " << total_samples << "\n"
+            << " MD5 Checksum: ";
+
+  for (const auto val : md5_checksum) { std::cout << "0x" << std::hex << static_cast<int>(val) << std::dec << " "; }
+  std::cout << "\n";
 
   if (min_block_size < 16 || max_block_size < 16 || min_block_size > max_block_size) {
     std::cerr << "Invalid minimum/maxmimum block sizes.\n";
