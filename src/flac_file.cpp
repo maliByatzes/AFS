@@ -251,11 +251,12 @@ bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size
   const uint num = block_size * 8;
 
   // u(n) -> n "0" bits
-  auto space = reader.read<uint64_t>(uint_least8_t(num)).value();
+  // auto space = reader.read<uint64_t>(uint_least8_t(num)).value();
+  reader.skip(num);
   m_bits_read += num;
 
   std::cout << "PADDING:\n"
-            << " Space: " << space << "\n";
+            << " Space: " << num << "\n";
 
   return true;
 }
