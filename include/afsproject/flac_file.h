@@ -103,7 +103,7 @@ private:
   bool isSyncCode(etl::bit_stream_reader &) const;
   void storeSamples(const std::vector<std::vector<int32_t>> &);
   bool validateMD5Checksum();
-  std::array<uint8_t, 16> computeMD5(const std::vector<uint8_t> &);
+  static std::array<uint8_t, 16> computeMD5(const std::vector<uint8_t> &);
 };
 
 std::string determinePictureTypeStr(uint32_t);

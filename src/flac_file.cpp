@@ -596,6 +596,14 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
   std::cout << "\nSuccessfully decoded " << frame_count << " frames.\n";
   std::cout << "Total PCM samples: " << m_pcm_data.size() << "\n";
 
+  if (m_has_md5_signature) {
+    if (!validateMD5Checksum()) {
+      std::cerr << "⚠️ WARNING: MD5 checksum validation failed.\n";
+      return false;
+    }
+    std::cout << "MD5 checksum validation: ✅ PASSED\n";
+  }
+
   return frame_count > 0;
 }
 
@@ -662,7 +670,6 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 
   storeSamples(channel_data.value());
 
-  std::cout << "bits read: " << m_bits_read << "\n";
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
   if (bits_to_align > 0) {
     std::cout << "We must byte align.\n";
@@ -1444,19 +1451,19 @@ void FlacFile::storeSamples(const std::vector<std::vector<int32_t>> &channel_dat
 
 bool FlacFile::validateMD5Checksum()
 {
-  if (!m_pcm_data.empty()) {
+  if (m_pcm_data.empty()) {
     std::cerr << "No PCM data to validate.\n";
     return false;
   }
 
   std::vector<uint8_t> sample_bytes;
 
-  uint32_t bytes_per_sample = (m_bit_depth + 7) / 8;
-  size_t num_samples_per_channel = m_pcm_data.size() / m_num_channels;
+  const uint32_t bytes_per_sample = (m_bit_depth + 7U) / 8U;
+  const size_t num_samples_per_channel = m_pcm_data.size() / m_num_channels;
 
   sample_bytes.reserve(num_samples_per_channel * m_num_channels * bytes_per_sample);
 
-  double denorm_factor = (1U << (m_bit_depth - 1U));
+  const double denorm_factor = (1U << (m_bit_depth - 1U));
 
   for (const auto value : m_pcm_data) {
     auto sample = static_cast<int32_t>(value * denorm_factor);
@@ -1479,11 +1486,11 @@ bool FlacFile::validateMD5Checksum()
   if (!match) {
     std::cout << "Expected MD5: ";
     for (size_t i = 0; i < 16; ++i) {
-      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_signature[i]);
+      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_checksum.at(i));
     }
     std::cout << "\nComputed MD5: ";
     for (size_t i = 0; i < 16; ++i) {
-      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(computed_md5[i]);
+      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(computed_md5.at(i));
     }
     std::cout << std::dec << "\n";
   }
@@ -1491,7 +1498,207 @@ bool FlacFile::validateMD5Checksum()
   return match;
 }
 
-std::array<uint8_t, 16> FlacFile::computeMD5(const std::vector<uint8_t> &data) {}
+std::array<uint8_t, 16> FlacFile::computeMD5(const std::vector<uint8_t> &data)
+{
+  // NOLINTBEGIN
+  constexpr uint32_t S[] = { 7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21 };
+
+  constexpr uint32_t K[] = { 0xd76aa478,
+    0xe8c7b756,
+    0x242070db,
+    0xc1bdceee,
+    0xf57c0faf,
+    0x4787c62a,
+    0xa8304613,
+    0xfd469501,
+    0x698098d8,
+    0x8b44f7af,
+    0xffff5bb1,
+    0x895cd7be,
+    0x6b901122,
+    0xfd987193,
+    0xa679438e,
+    0x49b40821,
+    0xf61e2562,
+    0xc040b340,
+    0x265e5a51,
+    0xe9b6c7aa,
+    0xd62f105d,
+    0x02441453,
+    0xd8a1e681,
+    0xe7d3fbc8,
+    0x21e1cde6,
+    0xc33707d6,
+    0xf4d50d87,
+    0x455a14ed,
+    0xa9e3e905,
+    0xfcefa3f8,
+    0x676f02d9,
+    0x8d2a4c8a,
+    0xfffa3942,
+    0x8771f681,
+    0x6d9d6122,
+    0xfde5380c,
+    0xa4beea44,
+    0x4bdecfa9,
+    0xf6bb4b60,
+    0xbebfbc70,
+    0x289b7ec6,
+    0xeaa127fa,
+    0xd4ef3085,
+    0x04881d05,
+    0xd9d4d039,
+    0xe6db99e5,
+    0x1fa27cf8,
+    0xc4ac5665,
+    0xf4292244,
+    0x432aff97,
+    0xab9423a7,
+    0xfc93a039,
+    0x655b59c3,
+    0x8f0ccc92,
+    0xffeff47d,
+    0x85845dd1,
+    0x6fa87e4f,
+    0xfe2ce6e0,
+    0xa3014314,
+    0x4e0811a1,
+    0xf7537e82,
+    0xbd3af235,
+    0x2ad7d2bb,
+    0xeb86d391 };
+
+  uint32_t a0 = 0x67452301;
+  uint32_t b0 = 0xefcdab89;
+  uint32_t c0 = 0x98badcfe;
+  uint32_t d0 = 0x10325476;
+
+  std::vector<uint8_t> msg = data;
+  uint64_t original_bit_len = data.size() * 8;
+
+  msg.push_back(0x80);
+
+  while ((msg.size() * 8) % 512 != 448) { msg.push_back(0); }
+
+  for (size_t i = 0; i < 8; ++i) { msg.push_back(static_cast<uint8_t>((original_bit_len >> (i * 8)) & 0xFFU)); }
+
+  for (size_t chunk_start = 0; chunk_start < msg.size(); chunk_start += 64) {
+    uint32_t M[16];
+
+    for (size_t i = 0; i < 16; ++i) {
+      M[i] = static_cast<uint32_t>(msg[chunk_start + (i * 4)])
+             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 1]) << 8U)
+             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 2]) << 16U)
+             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 3]) << 24U);
+    }
+
+    uint32_t A = a0;
+    uint32_t B = b0;
+    uint32_t C = c0;
+    uint32_t D = d0;
+
+    for (uint32_t i = 0; i < 64; ++i) {
+      uint32_t F, g;
+
+      if (i < 16) {
+        F = (B & C) | (~B & D);
+        g = i;
+      } else if (i < 32) {
+        F = (D & B) | (~D & C);
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = (7 * i) % 16;
+      }
+
+      F = F + A + K[i] + M[g];
+      A = D;
+      D = C;
+      C = B;
+      B = B + ((F << S[i]) | (F >> (32 - S[i])));
+    }
+
+    a0 += A;
+    b0 += B;
+    c0 += C;
+    d0 += D;
+  }
+
+  std::array<uint8_t, 16> result{};
+  for (size_t i = 0; i < 4; ++i) { result[i] = (a0 >> (i * 8U)) & 0xFFU; }
+  for (size_t i = 0; i < 4; ++i) { result[4 + i] = (b0 >> (i * 8U)) & 0xFFU; }
+  for (size_t i = 0; i < 4; ++i) { result[8 + i] = (c0 >> (i * 8U)) & 0xFFU; }
+  for (size_t i = 0; i < 4; ++i) { result[12 + i] = (d0 >> (i * 8U)) & 0xFFU; }
+
+  return result;
+  // NOLINTEND
+}
 
 /*
  * Utility functions
