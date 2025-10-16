@@ -8,6 +8,7 @@
 #include <etl/span.h>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <ios>
 #include <iostream>
 #include <optional>
@@ -192,13 +193,19 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   m_bits_read += 36;
 
   // u(128) -> MD5 checksum -> skip
-  std::array<uint8_t, 16> md5_checksum{};
   for (size_t i = 0; i < 16; ++i) {
     auto byte = reader.read<uint8_t>(8).value();
-    md5_checksum.at(i) = byte;
+    m_md5_checksum.at(i) = byte;
   }
-  m_md5_checksum = md5_checksum;
   m_bits_read += 128;
+
+  m_has_md5_signature = false;
+  for (size_t i = 0; i < 16; ++i) {
+    if (m_md5_checksum.at(i) != 0) {
+      m_has_md5_signature = true;
+      break;
+    }
+  }
 
   std::cout << "STREAMINFO:\n"
             << " Block size: " << block_size << "\n"
@@ -209,11 +216,17 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Sample rate: " << sample_rate << "\n"
             << " Channels: " << num_channels << "\n"
             << " Bits per sample: " << bits_per_samples << "\n"
-            << " Total samples: " << total_samples << "\n"
-            << " MD5 Checksum: ";
+            << " Total samples: " << total_samples << "\n";
 
-  for (const auto val : md5_checksum) { std::cout << "0x" << std::hex << static_cast<int>(val) << std::dec << " "; }
-  std::cout << "\n";
+  if (m_has_md5_signature) {
+    std::cout << " MD5 signature: ";
+    for (size_t i = 0; i < 16; ++i) {
+      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_checksum.at(i));
+    }
+    std::cout << std::dec << "\n";
+  } else {
+    std::cout << " MD5 signature: (not set)\n";
+  }
 
   if (min_block_size < 16 || max_block_size < 16 || min_block_size > max_block_size) {
     std::cerr << "Invalid minimum/maxmimum block sizes.\n";
@@ -1428,6 +1441,57 @@ void FlacFile::storeSamples(const std::vector<std::vector<int32_t>> &channel_dat
 
   std::cout << "Stored " << num_samples << " samples x " << num_channels << " channels.\n";
 }
+
+bool FlacFile::validateMD5Checksum()
+{
+  if (!m_pcm_data.empty()) {
+    std::cerr << "No PCM data to validate.\n";
+    return false;
+  }
+
+  std::vector<uint8_t> sample_bytes;
+
+  uint32_t bytes_per_sample = (m_bit_depth + 7) / 8;
+  size_t num_samples_per_channel = m_pcm_data.size() / m_num_channels;
+
+  sample_bytes.reserve(num_samples_per_channel * m_num_channels * bytes_per_sample);
+
+  double denorm_factor = (1U << (m_bit_depth - 1U));
+
+  for (const auto value : m_pcm_data) {
+    auto sample = static_cast<int32_t>(value * denorm_factor);
+
+    for (uint32_t bidx = 0; bidx < bytes_per_sample; ++bidx) {
+      sample_bytes.push_back(static_cast<uint8_t>((sample >> (bidx * 8)) & 0xFF));// NOLINT
+    }
+  }
+
+  std::array<uint8_t, 16> computed_md5 = computeMD5(sample_bytes);
+
+  bool match = true;
+  for (size_t i = 0; i < 16; ++i) {
+    if (computed_md5.at(i) != m_md5_checksum.at(i)) {
+      match = false;
+      break;
+    }
+  }
+
+  if (!match) {
+    std::cout << "Expected MD5: ";
+    for (size_t i = 0; i < 16; ++i) {
+      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_signature[i]);
+    }
+    std::cout << "\nComputed MD5: ";
+    for (size_t i = 0; i < 16; ++i) {
+      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(computed_md5[i]);
+    }
+    std::cout << std::dec << "\n";
+  }
+
+  return match;
+}
+
+std::array<uint8_t, 16> FlacFile::computeMD5(const std::vector<uint8_t> &data) {}
 
 /*
  * Utility functions

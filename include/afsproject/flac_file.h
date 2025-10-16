@@ -61,9 +61,10 @@ public:
 
 private:
   std::vector<uint8_t> m_file_data;
-  uint32_t m_channel_mask;
-  uint32_t m_bits_read;
-  std::array<uint8_t, 16> m_md5_checksum;
+  uint32_t m_channel_mask{};
+  uint32_t m_bits_read{};
+  std::array<uint8_t, 16> m_md5_checksum{};
+  bool m_has_md5_signature = false;
   // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
@@ -101,6 +102,8 @@ private:
   static bool decorrelateChannels(std::vector<std::vector<int32_t>> &, int);
   bool isSyncCode(etl::bit_stream_reader &) const;
   void storeSamples(const std::vector<std::vector<int32_t>> &);
+  bool validateMD5Checksum();
+  std::array<uint8_t, 16> computeMD5(const std::vector<uint8_t> &);
 };
 
 std::string determinePictureTypeStr(uint32_t);
