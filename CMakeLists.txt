@@ -65,10 +65,11 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 endif()
 
 # Adding the tests:
-# include(CTest)
+include(CTest)
 
 if(BUILD_TESTING)
-  message(AUTHOR_WARNING "Building Tests. Be sure to check out test/constexpr_tests.cpp for constexpr testing")
+  message(AUTHOR_WARNING "Building Tests.")
+  # find_package(Catch2 3 REQUIRED)
   add_subdirectory(test)
 endif()
 
