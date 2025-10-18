@@ -1,5 +1,4 @@
-add_executable(AFS
-  main.cpp
+add_library(afsproject_lib 
   fft.cpp
   audio_engine.cpp
   wave_file.cpp
@@ -12,14 +11,14 @@ add_executable(AFS
   db.cpp
 )
 
-target_link_libraries(
-  AFS
+target_link_libraries(afsproject_lib
   PRIVATE afsproject::afsproject_options
           afsproject::afsproject_warnings
-          etl)
+          etl
+)
 
 target_link_system_libraries(
-  AFS
+  afsproject_lib
   PRIVATE
           matplot
           fftw3
@@ -27,7 +26,20 @@ target_link_system_libraries(
           sqlite3
 )
 
-target_include_directories(AFS ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                                       $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>)
+target_include_directories(afsproject_lib 
+  ${WARNING_GUARD} PUBLIC 
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+)
 
-target_compile_features(AFS PUBLIC cxx_std_23)
+target_compile_features(afsproject_lib PUBLIC cxx_std_23)
+
+add_library(afsproject::afsproject_lib ALIAS afsproject_lib)
+
+add_executable(AFS
+  main.cpp
+)
+
+target_link_libraries(AFS
+  PRIVATE afsproject::afsproject_lib
+)
