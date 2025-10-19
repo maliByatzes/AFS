@@ -61,6 +61,7 @@ public:
 
 private:
   std::vector<uint8_t> m_file_data;
+  uint64_t m_total_samples{};
   uint32_t m_channel_mask{};
   uint32_t m_bits_read{};
   std::array<uint8_t, 16> m_md5_checksum{};

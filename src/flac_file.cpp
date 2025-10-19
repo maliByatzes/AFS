@@ -190,6 +190,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   m_bits_read += 5;
   // u(36) -> total number of interchannel samples
   auto total_samples = reader.read<uint64_t>(36).value();
+  m_total_samples = total_samples;
   m_bits_read += 36;
 
   // u(128) -> MD5 checksum -> skip
@@ -564,32 +565,19 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
 {
   int frame_count = 0;
 
-  std::cout << "\nbit read be4 starting on frames: " << m_bits_read << "\n";
   while (m_bits_read < reader.size_bits()) {
     std::cout << "\n=== Decoding Frame " << frame_count << " ===\n";
 
     try {
       if (!decodeFrame(reader)) {
         std::cerr << "Failed to decode frame " << frame_count << "\n";
-
-        /*
-        if (!seekToNextFrame(reader)) {
-          std::cerr << "Could not find next frame, stopping.\n";
-          break;
-        }*/
-
         break;
       }
 
       frame_count++;
     } catch (const std::exception &e) {
       std::cerr << "Exception while decoding frame: " << frame_count << ": " << e.what() << "\n";
-
-      /*
-      if (!seekToNextFrame(reader)) {
-        std::cerr << "Could not recover, stopping.\n";
-        break;
-      }*/
+      return false;
     }
   }
 
@@ -945,7 +933,7 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
 
     if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
 
-    std::cout << "\t\t\tsample = " << value << "\n";
+    // std::cout << "\t\t\tsample = " << value << "\n";
     samples[i] = value;
   }
 
@@ -979,15 +967,15 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
       return false;
     }
 
-    std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
+    // std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
 
     samples[i] = residual[i - order] + prediction;
 
-    std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
+    // std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
 
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
 
-    std::cout << "\t\tsample after shift = " << samples[i] << "\n";
+    // std::cout << "\t\tsample after shift = " << samples[i] << "\n";
   }
 
   std::cout << "\t\tDecoded FIXED order " << static_cast<int>(order) << "\n";
@@ -1010,7 +998,7 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
 
     if (wasted_bits > 0) { value <<= wasted_bits; }// NOLINT
 
-    std::cout << "\t\t\tsample = " << value << "\n";
+    // std::cout << "\t\t\tsample = " << value << "\n";
     samples[i] = value;
   }
 
@@ -1041,7 +1029,7 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
   std::vector<int32_t> coefficients(order);
   for (uint8_t i = 0; i < order; ++i) {
     coefficients[i] = readSignedValue(reader, uint16_t(precision));
-    std::cout << "\t\tcoffecient=" << coefficients[i] << "\n";
+    // std::cout << "\t\tcoffecient=" << coefficients[i] << "\n";
   }
 
   std::cout << "\t\tProcessing coded residuals.\n";
@@ -1059,14 +1047,14 @@ bool FlacFile::decodeLPCSubframe(etl::bit_stream_reader &reader,
     if (prediction > INT32_MAX || prediction < INT32_MIN) {
       std::cerr << "Warning: LPC prediction overflow after shift: " << prediction << "\n";
     }
-    std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
+    // std::cout << "\n\t\tresidual = " << residual[i - order] << "\n";
 
     samples[i] = residual[i - order] + static_cast<int32_t>(prediction);
 
-    std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
+    // std::cout << "\t\tsample be4 shift = " << samples[i] << "\n";
     if (wasted_bits > 0) { samples[i] <<= wasted_bits; }// NOLINT
 
-    std::cout << "\t\tsample after shift = " << samples[i] << "\n";
+    // std::cout << "\t\tsample after shift = " << samples[i] << "\n";
   }
 
   std::cout << "\t\tDecoded LPC order " << static_cast<int>(order) << ", precision " << precision << ", shift "
@@ -1088,14 +1076,14 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
     std::cerr << "Reserved residual coding method.\n";
     return false;
   }
-  std::cout << "\t\t\tCoding method: " << coding_method << "\n";
+  // std::cout << "\t\t\tCoding method: " << coding_method << "\n";
 
   // u(4) -> partition order
   auto partition_order = static_cast<int>(reader.read<uint8_t>(4).value());
   m_bits_read += 4;
 
   const uint32_t num_partitions = 1U << uint(partition_order);
-  std::cout << "\t\t\tPartition order: " << partition_order << " (" << num_partitions << " partitions)\n";
+  // std::cout << "\t\t\tPartition order: " << partition_order << " (" << num_partitions << " partitions)\n";
 
   if (block_size % num_partitions != 0) {
     std::cerr << "Invalid data stream: block_size " << block_size << " is not divisible by " << num_partitions
@@ -1120,7 +1108,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
 
   uint32_t sample_idx = 0;
 
-  std::cout << "\t\t\tProcessing all partitions.\n";
+  // std::cout << "\t\t\tProcessing all partitions.\n";
   for (uint32_t part_idx = 0; part_idx < num_partitions; ++part_idx) {
     uint32_t partition_samples{};
 
@@ -1135,25 +1123,25 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
       continue;
     }
 
-    std::cout << "\n\t\t\tNumber of residual samples: " << partition_samples << "\n";
+    // std::cout << "\n\t\t\tNumber of residual samples: " << partition_samples << "\n";
 
     const uint8_t rice_param_bits = (coding_method == 0) ? 4 : 5;
     auto rice_param = reader.read<uint32_t>(uint_least8_t(rice_param_bits)).value();
     m_bits_read += rice_param_bits;
 
-    std::cout << "\t\t\tRice parameter: " << rice_param << " (" << static_cast<int>(rice_param_bits) << ").\n";
+    // std::cout << "\t\t\tRice parameter: " << rice_param << " (" << static_cast<int>(rice_param_bits) << ").\n";
 
     const uint32_t escape_code = (coding_method == 0) ? 15 : 31;
 
-    std::cout << "\t\t\tEscape code: " << escape_code << "\n";
+    // std::cout << "\t\t\tEscape code: " << escape_code << "\n";
 
     if (rice_param == escape_code) {
       // u(5) -> unencoded binary partition
       auto bps = reader.read<uint8_t>(5).value();
       m_bits_read += 5;
-      std::cout << "\t\t\tUnencoded partition: " << static_cast<int>(bps) << " bps\n";
+      // std::cout << "\t\t\tUnencoded partition: " << static_cast<int>(bps) << " bps\n";
 
-      std::cout << "\t\t\tDecoding residual coding samples with signed value.\n";
+      // std::cout << "\t\t\tDecoding residual coding samples with signed value.\n";
       for (uint32_t i = 0; i < partition_samples; ++i) {
         if (sample_idx >= residual.size()) {
           std::cerr << "Residual buffer overflow at sample " << sample_idx << "\n";
@@ -1162,8 +1150,8 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
         residual[sample_idx++] = readSignedValue(reader, bps);
       }
     } else {
-      std::cout << "\t\t\tDecoding residual coding with rice signed value.\n";
-      std::cout << "\t\t\tRice parameter: " << rice_param << "\n";
+      // std::cout << "\t\t\tDecoding residual coding with rice signed value.\n";
+      // std::cout << "\t\t\tRice parameter: " << rice_param << "\n";
 
       for (uint32_t i = 0; i < partition_samples; ++i) {
         if (sample_idx >= residual.size()) {
@@ -1321,14 +1309,14 @@ std::optional<uint64_t> FlacFile::readUTF8(etl::bit_stream_reader &reader)
 
 int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 {
-  std::cout << "\n\t\t\tRead signed values.\n";
+  // std::cout << "\n\t\t\tRead signed values.\n";
   if (bits == 0) { return 0; }
 
   if (bits < 1 || bits > 32) { throw std::invalid_argument("bits must be between 1 and 32"); }
 
   const auto value = reader.read<uint32_t>(static_cast<uint_least8_t>(bits)).value();
   m_bits_read += bits;
-  std::cout << "\t\t\tvalue=" << value << "\n";
+  // std::cout << "\t\t\tvalue=" << value << "\n";
 
   if (bits == 32) { return static_cast<int32_t>(value); }
 
@@ -1337,21 +1325,21 @@ int32_t FlacFile::readSignedValue(etl::bit_stream_reader &reader, uint16_t bits)
 
   if (bool(value & sign_bit_mask)) {
     const int32_t result = static_cast<int32_t>(value) - static_cast<int32_t>(two_power);
-    std::cout << "\t\t\tresult1=" << result << "\n";
+    // std::cout << "\t\t\tresult1=" << result << "\n";
     return result;
   } else {
-    std::cout << "\t\t\tresult2=" << static_cast<int32_t>(value) << "\n";
+    // std::cout << "\t\t\tresult2=" << static_cast<int32_t>(value) << "\n";
     return static_cast<int32_t>(value);
   }
 }
 
 int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t param)
 {
-  std::cout << "\n\t\t\tRead rice signed values.\n";
+  // std::cout << "\n\t\t\tRead rice signed values.\n";
   uint32_t quotient = 0;
   while (static_cast<int>(reader.read<uint8_t>(1).value()) == 0) { quotient++; }
   m_bits_read += (quotient + 1);
-  std::cout << "\t\t\tqoutient = " << quotient << "\n";
+  // std::cout << "\t\t\tqoutient = " << quotient << "\n";
 
   uint32_t remainder = 0;
   if (param > 0) {
@@ -1359,19 +1347,19 @@ int32_t FlacFile::readRiceSignedValue(etl::bit_stream_reader &reader, uint32_t p
     m_bits_read += param;
   }
 
-  std::cout << "\t\t\tremainder = " << remainder << "\n";
+  // std::cout << "\t\t\tremainder = " << remainder << "\n";
 
   const uint32_t value = (quotient << param) | remainder;
 
-  std::cout << "\t\t\tzigzag unencoded value = " << value << "\n";
+  // std::cout << "\t\t\tzigzag unencoded value = " << value << "\n";
 
   if (bool(value & 1U)) {
     auto value2 = -static_cast<int32_t>((value + 1) >> 1U);
-    std::cout << "\t\t\tresidual sample value1 = " << value2 << "\n";
+    // std::cout << "\t\t\tresidual sample value1 = " << value2 << "\n";
     return value2;
   } else {
     auto value2 = static_cast<int32_t>(value >> 1U);
-    std::cout << "\t\t\tresidual sample value2 = " << value2 << "\n";
+    // std::cout << "\t\t\tresidual sample value2 = " << value2 << "\n";
     return value2;
   }
 }
@@ -1459,9 +1447,15 @@ bool FlacFile::validateMD5Checksum()
   std::vector<uint8_t> sample_bytes;
 
   const uint32_t bytes_per_sample = (m_bit_depth + 7U) / 8U;
-  const size_t num_samples_per_channel = m_pcm_data.size() / m_num_channels;
 
-  sample_bytes.reserve(num_samples_per_channel * m_num_channels * bytes_per_sample);
+  const uint64_t expected_total_samples = m_total_samples * m_num_channels;
+
+  if (m_pcm_data.size() != expected_total_samples) {
+    std::cerr << "Sample count mismatch: got " << m_pcm_data.size() << ", expected " << expected_total_samples << "\n";
+    return false;
+  }
+
+  sample_bytes.reserve(expected_total_samples * bytes_per_sample);
 
   const double denorm_factor = (1U << (m_bit_depth - 1U));
 
