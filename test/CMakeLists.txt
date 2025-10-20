@@ -24,8 +24,5 @@ set_tests_properties(cli.version_matches PROPERTIES PASS_REGULAR_EXPRESSION "${P
 # Include test fixtures
 # add_subdirectory(fixtures)
 
-# Include unit tests
-add_subdirectory(unit)
-
 # Include integration test
-# add_subdirectory(integration)
+add_subdirectory(integration)
