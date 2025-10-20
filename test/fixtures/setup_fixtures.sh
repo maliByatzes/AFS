@@ -39,10 +39,11 @@ if [ -d "${TEMP_DIR}/subset" ]; then
       cp "$file" "${TEST_FIXTURES_DIR}/subset/surround/" 2>/dev/null || true
     elif ((number >= 45 && number <= 59)); then
       cp "$file" "${TEST_FIXTURES_DIR}/subset/metadata_extremes/" 2>/dev/null || true
-    wlif ((number >= 60 && number <= 64)); then
+    elif ((number >= 60 && number <= 64)); then
       cp "$file" "${TEST_FIXTURES_DIR}/subset/misc/" 2>/dev/null || true
     else
       echo "[+] Skipping $filename: number $number out of defined ranges."
+    fi
   done
 fi
 

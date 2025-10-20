@@ -10,6 +10,7 @@ conan-cache/
 *.svg/
 afs.db
 .ccls-cache/
+test/fixtures/audio_samples/
 
 CMakeUserPresets.json
 
