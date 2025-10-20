@@ -14,6 +14,7 @@ add_library(afsproject_lib
 target_link_libraries(afsproject_lib
   PRIVATE afsproject::afsproject_options
           afsproject::afsproject_warnings
+  PUBLIC
           etl
 )
 

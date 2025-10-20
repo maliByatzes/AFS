@@ -11,6 +11,7 @@ conan-cache/
 afs.db
 .ccls-cache/
 test/fixtures/audio_samples/
+Testing/
 
 CMakeUserPresets.json
 

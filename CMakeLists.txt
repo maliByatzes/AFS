@@ -65,12 +65,13 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 endif()
 
 # Adding the tests:
-# include(CTest)
+include(CTest)
 
-#if(BUILD_TESTING)
-#  message(AUTHOR_WARNING "Building Tests.")
-#  add_subdirectory(test)
-#endif()
+if(BUILD_TESTING)
+  enable_testing()
+  message(AUTHOR_WARNING "Building Tests.")
+  add_subdirectory(test)
+endif()
 
 
 if(afsproject_BUILD_FUZZ_TESTS)
