@@ -68,7 +68,6 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
-  enable_testing()
   message(AUTHOR_WARNING "Building Tests.")
   add_subdirectory(test)
 endif()

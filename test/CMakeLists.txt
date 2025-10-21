@@ -22,7 +22,7 @@ add_test(NAME cli.version_matches COMMAND AFS --version)
 set_tests_properties(cli.version_matches PROPERTIES PASS_REGULAR_EXPRESSION "${PROJECT_VERSION}")
 
 # Include test fixtures
-# add_subdirectory(fixtures)
+add_subdirectory(fixtures)
 
 # Include integration test
 add_subdirectory(integration)
