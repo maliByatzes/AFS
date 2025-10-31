@@ -215,9 +215,9 @@ bool WaveFile::decodeSamples(const WaveFmtChunk &fmt_chunk, const WaveDataChunk 
   } else if (fmt_chunk.bit_depth == 16) {// NOLINT
     decode16Bits(fmt_chunk, data);
   } else if (fmt_chunk.bit_depth == 24) {// NOLINT
-    assert(true && "Not implemented!");
+    static_assert(true, "Not implemented!");
   } else if (fmt_chunk.bit_depth == 32) {// NOLINT
-    assert(true && "Not implemented!");
+    static_assert(true, "Not implemented!");
   }
 
   // Scale down samples to [-1,1]
@@ -357,9 +357,9 @@ void WaveFile::encodeDataChunk(std::vector<uint8_t> &data) const
   } else if (m_bit_depth == 16) {// NOLINT
     encode16Bits(data);
   } else if (m_bit_depth == 24) {// NOLINT
-    assert(true && "Not implemented!");
+    static_assert(true, "Not implemented!");
   } else if (m_bit_depth == 32) {// NOLINT
-    assert(true && "Not implemented!");
+    static_assert(true, "Not implemented!");
   }
 }
 

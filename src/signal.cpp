@@ -6,8 +6,8 @@
 #include <NumCpp/Functions/roll.hpp>
 #include <NumCpp/Functions/sin.hpp>
 #include <NumCpp/NdArray/NdArrayCore.hpp>
-#include <algorithm>
 #include <afsproject/signal.h>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -22,7 +22,7 @@ Wave Signal::makeWave(double duration, double start, int framerate) const// NOLI
 {
   const double size = std::round(duration * double(framerate));
   nc::NdArray<double> time_values = nc::arange<double>(size);
-  std::ranges::for_each(time_values, [&](double &val) { val = start + val / double(framerate); });
+  std::ranges::for_each(time_values, [&](double &val) { val = start + (val / double(framerate)); });
   const nc::NdArray<double> ys = evaluate(time_values);
   return { ys, time_values, framerate };
 }

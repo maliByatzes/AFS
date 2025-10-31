@@ -954,16 +954,16 @@ bool FlacFile::decodeFixedSubframe(etl::bit_stream_reader &reader,
       prediction = samples[idx];
       break;
     case 2:
-      prediction = 2 * samples[idx] - samples[idx - 1];
+      prediction = (2 * samples[idx]) - samples[idx - 1];
       break;
     case 3:
-      prediction = 3 * samples[idx] - 3 * samples[idx - 1] + samples[idx - 2];
+      prediction = (3 * samples[idx]) - (3 * samples[idx - 1]) + samples[idx - 2];
       break;
     case 4:
-      prediction = 4 * samples[idx] - 6 * samples[idx - 1] + 4 * samples[idx - 2] - samples[idx - 3];
+      prediction = (4 * samples[idx]) - (6 * samples[idx - 1]) + (4 * samples[idx - 2]) - samples[idx - 3];
       break;
     default:
-      std::cerr << "Unsupported order: " << order << "\n";
+      std::cerr << "Unsupported order: " << static_cast<int>(order) << "\n";
       return false;
     }
 
@@ -1095,7 +1095,7 @@ bool FlacFile::decodeResidual(etl::bit_stream_reader &reader,
 
   if (samples_per_partition <= predictor_order) {
     std::cerr << "Invalid data stream: block_size " << block_size << " >> partition_order " << partition_order
-              << " is less than predictor_order " << predictor_order << "\n";
+              << " is less than predictor_order " << static_cast<int>(predictor_order) << "\n";
     return false;
   }
 
