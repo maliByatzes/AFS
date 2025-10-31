@@ -65,6 +65,7 @@ private:
   uint32_t m_bits_read{};
   std::vector<uint8_t> m_md5_checksum;
   bool m_has_md5_signature = false;
+  std::vector<std::vector<int>> m_samples;
   // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);

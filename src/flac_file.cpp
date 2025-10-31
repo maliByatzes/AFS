@@ -658,6 +658,7 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
     }
   }
 
+  m_samples = channel_data.value();
   storeSamples(channel_data.value());
 
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
@@ -1441,6 +1442,8 @@ void FlacFile::storeSamples(const std::vector<std::vector<int32_t>> &channel_dat
 
 bool FlacFile::validateMD5Checksum()
 {
+  std::cout << "size: " << m_pcm_data.size() << "\n";
+  /*
   if (m_pcm_data.empty()) {
     std::cerr << "No PCM data to validate.\n";
     return false;
@@ -1478,6 +1481,66 @@ bool FlacFile::validateMD5Checksum()
       break;
     }
   }
+
+  if (!match) {
+    std::cout << "Expected MD5: " << to_hex_string(m_md5_checksum) << "\n";
+    std::cout << "Computed MD5: " << to_hex_string(computed_md5) << "\n";
+  }
+
+  return match;*/
+
+  for (const auto &smpl : m_samples) {
+    for (const auto &sss : smpl) { std::cout << sss << " "; }
+  }
+  std::cout << "\n";
+
+  if (m_samples.empty() || m_samples[0].empty()) {
+    std::cerr << "No PCM data available to validate.\n";
+    return false;
+  }
+
+  const uint32_t bytes_per_sample = (m_bit_depth + 7U) / 8U;
+  std::cout << "bytes_per_sample: " << bytes_per_sample << "\n";
+  const auto num_channels = static_cast<uint32_t>(m_samples.size());
+  std::cout << "num_channels: " << num_channels << "\n";
+  const auto num_samples = static_cast<uint32_t>(m_samples[0].size());
+  std::cout << "num_samples: " << num_samples << "\n";
+  const uint64_t expected_total_samples = m_total_samples * m_num_channels;
+  std::cout << "expected_total_samples: " << expected_total_samples << "\n";
+
+  for (size_t ch = 0; ch < m_samples.size(); ++ch) {
+    if (m_samples[ch].size() != num_samples) {
+      std::cerr << "Channel " << ch << " has inconsistent sample count.\n";
+      return false;
+    }
+  }
+
+  if (num_samples != expected_total_samples) {
+    std::cerr << "Sample count mismatch: got= " << num_samples << ", expected= " << expected_total_samples << "\n";
+    return false;
+  }
+
+  std::vector<uint8_t> sample_bytes;
+  sample_bytes.reserve(expected_total_samples * bytes_per_sample);
+
+  for (uint64_t i = 0; i < num_samples; ++i) {
+    for (uint32_t ch = 0; ch < num_channels; ++ch) {
+      int32_t sample = m_samples[ch][i];
+
+      const int32_t min_val = -static_cast<int32_t>((1U << (m_bit_depth - 1U)));
+      const auto max_val = static_cast<int32_t>((1U << (m_bit_depth - 1U)) - 1);
+      sample = std::min(sample, min_val);
+      sample = std::max(sample, max_val);
+
+      for (uint32_t b = 0; b < bytes_per_sample; ++b) {// NOLINT
+        sample_bytes.push_back(static_cast<uint8_t>((sample >> (8 * b)) & 0xFF));// NOLINT
+      }
+    }
+  }
+
+  const std::vector<uint8_t> computed_md5 = computeMD5(sample_bytes);
+
+  const bool match = std::equal(computed_md5.begin(), computed_md5.end(), m_md5_checksum.begin());
 
   if (!match) {
     std::cout << "Expected MD5: " << to_hex_string(m_md5_checksum) << "\n";
