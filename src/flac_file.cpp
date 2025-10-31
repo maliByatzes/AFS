@@ -1,5 +1,6 @@
 #include <afsproject/flac_file.h>
-#include <array>
+#include <algorithm>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -11,7 +12,9 @@
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <iterator>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
@@ -196,7 +199,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   // u(128) -> MD5 checksum -> skip
   for (size_t i = 0; i < 16; ++i) {
     auto byte = reader.read<uint8_t>(8).value();
-    m_md5_checksum.at(i) = byte;
+    m_md5_checksum.push_back(byte);
   }
   m_bits_read += 128;
 
@@ -220,11 +223,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Total samples: " << total_samples << "\n";
 
   if (m_has_md5_signature) {
-    std::cout << " MD5 signature: ";
-    for (size_t i = 0; i < 16; ++i) {
-      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_checksum.at(i));
-    }
-    std::cout << std::dec << "\n";
+    std::cout << " MD5 signature: " << to_hex_string(m_md5_checksum) << "\n";
   } else {
     std::cout << " MD5 signature: (not set)\n";
   }
@@ -1467,7 +1466,7 @@ bool FlacFile::validateMD5Checksum()
     }
   }
 
-  std::array<uint8_t, 16> computed_md5 = computeMD5(sample_bytes);
+  std::vector<uint8_t> computed_md5 = computeMD5(sample_bytes);
 
   bool match = true;
   for (size_t i = 0; i < 16; ++i) {
@@ -1478,220 +1477,11 @@ bool FlacFile::validateMD5Checksum()
   }
 
   if (!match) {
-    std::cout << "Expected MD5: ";
-    for (size_t i = 0; i < 16; ++i) {
-      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(m_md5_checksum.at(i));
-    }
-    std::cout << "\nComputed MD5: ";
-    for (size_t i = 0; i < 16; ++i) {
-      std::cout << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(computed_md5.at(i));
-    }
-    std::cout << std::dec << "\n";
+    std::cout << "Expected MD5: " << to_hex_string(m_md5_checksum) << "\n";
+    std::cout << "Computed MD5: " << to_hex_string(computed_md5) << "\n";
   }
 
   return match;
-}
-
-std::array<uint8_t, 16> FlacFile::computeMD5(const std::vector<uint8_t> &data)
-{
-  // NOLINTBEGIN
-  constexpr uint32_t S[] = { 7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    7,
-    12,
-    17,
-    22,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    5,
-    9,
-    14,
-    20,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    4,
-    11,
-    16,
-    23,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21,
-    6,
-    10,
-    15,
-    21 };
-
-  constexpr uint32_t K[] = { 0xd76aa478,
-    0xe8c7b756,
-    0x242070db,
-    0xc1bdceee,
-    0xf57c0faf,
-    0x4787c62a,
-    0xa8304613,
-    0xfd469501,
-    0x698098d8,
-    0x8b44f7af,
-    0xffff5bb1,
-    0x895cd7be,
-    0x6b901122,
-    0xfd987193,
-    0xa679438e,
-    0x49b40821,
-    0xf61e2562,
-    0xc040b340,
-    0x265e5a51,
-    0xe9b6c7aa,
-    0xd62f105d,
-    0x02441453,
-    0xd8a1e681,
-    0xe7d3fbc8,
-    0x21e1cde6,
-    0xc33707d6,
-    0xf4d50d87,
-    0x455a14ed,
-    0xa9e3e905,
-    0xfcefa3f8,
-    0x676f02d9,
-    0x8d2a4c8a,
-    0xfffa3942,
-    0x8771f681,
-    0x6d9d6122,
-    0xfde5380c,
-    0xa4beea44,
-    0x4bdecfa9,
-    0xf6bb4b60,
-    0xbebfbc70,
-    0x289b7ec6,
-    0xeaa127fa,
-    0xd4ef3085,
-    0x04881d05,
-    0xd9d4d039,
-    0xe6db99e5,
-    0x1fa27cf8,
-    0xc4ac5665,
-    0xf4292244,
-    0x432aff97,
-    0xab9423a7,
-    0xfc93a039,
-    0x655b59c3,
-    0x8f0ccc92,
-    0xffeff47d,
-    0x85845dd1,
-    0x6fa87e4f,
-    0xfe2ce6e0,
-    0xa3014314,
-    0x4e0811a1,
-    0xf7537e82,
-    0xbd3af235,
-    0x2ad7d2bb,
-    0xeb86d391 };
-
-  uint32_t a0 = 0x67452301;
-  uint32_t b0 = 0xefcdab89;
-  uint32_t c0 = 0x98badcfe;
-  uint32_t d0 = 0x10325476;
-
-  std::vector<uint8_t> msg = data;
-  uint64_t original_bit_len = data.size() * 8;
-
-  msg.push_back(0x80);
-
-  while ((msg.size() * 8) % 512 != 448) { msg.push_back(0); }
-
-  for (size_t i = 0; i < 8; ++i) { msg.push_back(static_cast<uint8_t>((original_bit_len >> (i * 8)) & 0xFFU)); }
-
-  for (size_t chunk_start = 0; chunk_start < msg.size(); chunk_start += 64) {
-    uint32_t M[16];
-
-    for (size_t i = 0; i < 16; ++i) {
-      M[i] = static_cast<uint32_t>(msg[chunk_start + (i * 4)])
-             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 1]) << 8U)
-             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 2]) << 16U)
-             | (static_cast<uint32_t>(msg[chunk_start + (i * 4) + 3]) << 24U);
-    }
-
-    uint32_t A = a0;
-    uint32_t B = b0;
-    uint32_t C = c0;
-    uint32_t D = d0;
-
-    for (uint32_t i = 0; i < 64; ++i) {
-      uint32_t F, g;
-
-      if (i < 16) {
-        F = (B & C) | (~B & D);
-        g = i;
-      } else if (i < 32) {
-        F = (D & B) | (~D & C);
-        g = (5 * i + 1) % 16;
-      } else if (i < 48) {
-        F = B ^ C ^ D;
-        g = (3 * i + 5) % 16;
-      } else {
-        F = C ^ (B | ~D);
-        g = (7 * i) % 16;
-      }
-
-      F = F + A + K[i] + M[g];
-      A = D;
-      D = C;
-      C = B;
-      B = B + ((F << S[i]) | (F >> (32 - S[i])));
-    }
-
-    a0 += A;
-    b0 += B;
-    c0 += C;
-    d0 += D;
-  }
-
-  std::array<uint8_t, 16> result{};
-  for (size_t i = 0; i < 4; ++i) { result[i] = (a0 >> (i * 8U)) & 0xFFU; }
-  for (size_t i = 0; i < 4; ++i) { result[4 + i] = (b0 >> (i * 8U)) & 0xFFU; }
-  for (size_t i = 0; i < 4; ++i) { result[8 + i] = (c0 >> (i * 8U)) & 0xFFU; }
-  for (size_t i = 0; i < 4; ++i) { result[12 + i] = (d0 >> (i * 8U)) & 0xFFU; }
-
-  return result;
-  // NOLINTEND
 }
 
 /*
@@ -1922,6 +1712,112 @@ int utf8SequenceLength(uint8_t first_byte)
   if ((first_byte & 0xFEU) == 0xFC) { return 6; }
   if (first_byte == 0xFE) { return 7; }
   return 0;
+}
+
+// NOLINTBEGIN
+std::vector<uint8_t> computeMD5(const std::vector<uint8_t> &message)
+{
+  uint64_t message_length_bytes = message.size();
+  uint32_t number_blocks = static_cast<uint32_t>((message_length_bytes + 8) >> 6U) + 1;
+  uint32_t total_length = number_blocks << 6U;
+  std::vector<uint8_t> padding_bytes(total_length - message_length_bytes);
+  padding_bytes[0] = static_cast<uint8_t>(0x80);
+  uint64_t message_length_bits = message_length_bytes << 3U;
+  for (uint32_t i = 0; i < 8; ++i) {
+    padding_bytes[padding_bytes.size() - 8 + i] = static_cast<uint8_t>(message_length_bits);
+    message_length_bits >>= 8U;
+  }
+
+  uint32_t a = INITIAL_A;
+  uint32_t b = INITIAL_B;
+  uint32_t c = INITIAL_C;
+  uint32_t d = INITIAL_D;
+
+  std::vector<uint32_t> buffer(16);
+  for (uint32_t i = 0; i < number_blocks; ++i) {
+    uint32_t index = i << 6U;
+    for (uint32_t j = 0; j < 64; index++, ++j) {
+      buffer[j >> 2U] =
+        (static_cast<uint32_t>(
+           (index < message_length_bytes) ? message[index] : padding_bytes[index - message_length_bytes])
+          << 24U)
+        | (buffer[j >> 2U] >> 8U);
+    }
+
+    uint32_t original_A = a;
+    uint32_t original_B = b;
+    uint32_t original_C = c;
+    uint32_t original_D = d;
+
+    for (uint32_t j = 0; j < 64; ++j) {
+      uint32_t div16 = j >> 4U;
+      uint32_t f = 0;
+      uint32_t buffer_index = j;
+      switch (div16) {
+      case 0:
+        f = (b & c) | (~b & d);
+        break;
+      case 1:
+        f = (b & d) | (c & ~d);
+        buffer_index = (buffer_index * 5 + 1) & 0x0FU;
+        break;
+      case 2:
+        f = b ^ c ^ d;
+        buffer_index = (buffer_index * 3 + 5) & 0x0FU;
+        break;
+      case 3:
+        f = c ^ (b | ~d);
+        buffer_index = (buffer_index * 7) & 0x0FU;
+        break;
+      }
+      uint32_t temp =
+        b + std::rotl(a + f + buffer[buffer_index] + K[j], static_cast<int>(SHIFT_AMOUNTS[(div16 << 2U) | (j & 3U)]));
+
+      a = d;
+      d = c;
+      c = b;
+      b = temp;
+    }
+
+    a += original_A;
+    b += original_B;
+    c += original_C;
+    d += original_D;
+  }
+
+  std::vector<uint8_t> md5(16);
+  uint32_t count = 0;
+  for (uint32_t i = 0; i < 4; ++i) {
+    uint32_t n = (i == 0) ? a : ((i == 1) ? b : ((i == 2) ? c : d));
+    for (uint32_t j = 0; j < 4; ++j) {
+      md5[count++] = static_cast<uint8_t>(n);
+      n >>= 8U;
+    }
+  }
+
+  return md5;
+}
+// NOLINTEND
+
+std::string to_hex_string(const std::vector<uint8_t> &bytes)
+{
+  std::string hex_string{};
+  std::stringstream stream;
+  for (const uint8_t &byte : bytes) {
+    stream << std::setfill('0') << std::setw(2) << std::hex << (byte & 0xffU);
+    hex_string += stream.str();
+    stream.str("");
+  }
+  return hex_string;
+}
+
+std::vector<uint8_t> to_byte_vector(const std ::string &text)
+{
+  std::vector<uint8_t> bytes;
+  bytes.reserve(text.size());
+  std::ranges::transform(
+    text, std::back_inserter(bytes), [](char chr) -> uint8_t { return static_cast<uint8_t>(chr); });
+  return bytes;
 }
 
 }// namespace afs
