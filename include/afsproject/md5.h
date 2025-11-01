@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace afs {
 
@@ -13,6 +14,7 @@ public:
   MD5();
 
   void update(const std::string &);
+  void update(const std::vector<uint8_t> &);
   void update(const uint8_t *, size_t);
   std::array<uint8_t, 16> finalize();
   static std::array<uint8_t, 16> compute(const std::string &);

@@ -9,6 +9,8 @@ MD5::MD5() { init(); }
 
 void MD5::update(const std::string &input) { update(reinterpret_cast<const uint8_t *>(input.c_str()), input.length()); }
 
+void MD5::update(const std::vector<uint8_t> &input) { update(input.data(), input.size()); }
+
 void MD5::update(const uint8_t *input_buffer, size_t input_len)
 {
   uint32_t offset = m_size % 64;

@@ -1,6 +1,6 @@
 #include <afsproject/flac_file.h>
+#include <afsproject/md5.h>
 #include <algorithm>
-#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -9,12 +9,11 @@
 #include <etl/span.h>
 #include <exception>
 #include <fstream>
-#include <iomanip>
+#include <functional>
 #include <ios>
 #include <iostream>
-#include <iterator>
+#include <numeric>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
@@ -199,7 +198,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
   // u(128) -> MD5 checksum -> skip
   for (size_t i = 0; i < 16; ++i) {
     auto byte = reader.read<uint8_t>(8).value();
-    m_md5_checksum.push_back(byte);
+    m_md5_checksum.at(i) = byte;
   }
   m_bits_read += 128;
 
@@ -224,7 +223,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Total samples: " << total_samples << "\n";*/
 
   if (m_has_md5_signature) {
-    std::cout << " MD5 signature: " << to_hex_string(m_md5_checksum) << "\n";
+    std::cout << " MD5 signature: " << MD5::to_hex(m_md5_checksum) << "\n";
   } else {
     std::cout << " MD5 signature: (not set)\n";
   }
@@ -586,14 +585,13 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
   // std::cout << "\nSuccessfully decoded " << frame_count << " frames.\n";
   // std::cout << "Total PCM samples: " << m_pcm_data.size() << "\n";
 
-  /*
   if (m_has_md5_signature) {
     if (!validateMD5Checksum()) {
       std::cerr << "⚠️ WARNING: MD5 checksum validation failed.\n";
       return false;
     }
     std::cout << "MD5 checksum validation: ✅ PASSED\n";
-  }*/
+  }
 
   return frame_count > 0;
 }
@@ -659,12 +657,9 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
     }
   }
 
-  for (const auto &smpl : channel_data.value()) {
-    for (const auto &sss : smpl) { std::cout << sss << " "; }
-  }
+  // WARNING: temporary storing
+  m_samples.insert(m_samples.end(), channel_data.value().begin(), channel_data.value().end());
 
-  std::cout << "\n";
-  m_samples = channel_data.value();
   storeSamples(channel_data.value());
 
   const uint32_t bits_to_align = (8 - (m_bits_read % 8)) % 8;
@@ -1448,54 +1443,6 @@ void FlacFile::storeSamples(const std::vector<std::vector<int32_t>> &channel_dat
 
 bool FlacFile::validateMD5Checksum()
 {
-  std::cout << "size: " << m_pcm_data.size() << "\n";
-  /*
-  if (m_pcm_data.empty()) {
-    std::cerr << "No PCM data to validate.\n";
-    return false;
-  }
-
-  std::vector<uint8_t> sample_bytes;
-
-  const uint32_t bytes_per_sample = (m_bit_depth + 7U) / 8U;
-
-  const uint64_t expected_total_samples = m_total_samples * m_num_channels;
-
-  if (m_pcm_data.size() != expected_total_samples) {
-    std::cerr << "Sample count mismatch: got " << m_pcm_data.size() << ", expected " << expected_total_samples << "\n";
-    return false;
-  }
-
-  sample_bytes.reserve(expected_total_samples * bytes_per_sample);
-
-  const double denorm_factor = (1U << (m_bit_depth - 1U));
-
-  for (const auto value : m_pcm_data) {
-    auto sample = static_cast<int32_t>(value * denorm_factor);
-
-    for (uint32_t bidx = 0; bidx < bytes_per_sample; ++bidx) {
-      sample_bytes.push_back(static_cast<uint8_t>((sample >> (bidx * 8)) & 0xFF));// NOLINT
-    }
-  }
-
-  std::vector<uint8_t> computed_md5 = computeMD5(sample_bytes);
-
-  bool match = true;
-  for (size_t i = 0; i < 16; ++i) {
-    if (computed_md5.at(i) != m_md5_checksum.at(i)) {
-      match = false;
-      break;
-    }
-  }
-
-  if (!match) {
-    std::cout << "Expected MD5: " << to_hex_string(m_md5_checksum) << "\n";
-    std::cout << "Computed MD5: " << to_hex_string(computed_md5) << "\n";
-  }
-
-  return match;*/
-
-
   if (m_samples.empty() || m_samples[0].empty()) {
     std::cerr << "No PCM data available to validate.\n";
     return false;
@@ -1505,17 +1452,19 @@ bool FlacFile::validateMD5Checksum()
   std::cout << "bytes_per_sample: " << bytes_per_sample << "\n";
   const auto num_channels = static_cast<uint32_t>(m_samples.size());
   std::cout << "num_channels: " << num_channels << "\n";
-  const auto num_samples = static_cast<uint32_t>(m_samples[0].size());
+  const auto num_samples = static_cast<uint32_t>(std::transform_reduce(
+    m_samples.begin(), m_samples.end(), 0, std::plus<>(), [](const auto &row) { return row.size(); }));
   std::cout << "num_samples: " << num_samples << "\n";
   const uint64_t expected_total_samples = m_total_samples * m_num_channels;
   std::cout << "expected_total_samples: " << expected_total_samples << "\n";
 
+  /*
   for (size_t ch = 0; ch < m_samples.size(); ++ch) {
     if (m_samples[ch].size() != num_samples) {
       std::cerr << "Channel " << ch << " has inconsistent sample count.\n";
       return false;
     }
-  }
+  }*/
 
   if (num_samples != expected_total_samples) {
     std::cerr << "Sample count mismatch: got= " << num_samples << ", expected= " << expected_total_samples << "\n";
@@ -1540,13 +1489,15 @@ bool FlacFile::validateMD5Checksum()
     }
   }
 
-  const std::vector<uint8_t> computed_md5 = computeMD5(sample_bytes);
+  MD5 md5;
+  md5.update(sample_bytes);
+  auto computed_md5 = md5.finalize();
 
   const bool match = std::equal(computed_md5.begin(), computed_md5.end(), m_md5_checksum.begin());
 
   if (!match) {
-    std::cout << "Expected MD5: " << to_hex_string(m_md5_checksum) << "\n";
-    std::cout << "Computed MD5: " << to_hex_string(computed_md5) << "\n";
+    std::cout << "Expected MD5: " << MD5::to_hex(m_md5_checksum) << "\n";
+    std::cout << "Computed MD5: " << MD5::to_hex(computed_md5) << "\n";
   }
 
   return match;
@@ -1780,112 +1731,6 @@ int utf8SequenceLength(uint8_t first_byte)
   if ((first_byte & 0xFEU) == 0xFC) { return 6; }
   if (first_byte == 0xFE) { return 7; }
   return 0;
-}
-
-// NOLINTBEGIN
-std::vector<uint8_t> computeMD5(const std::vector<uint8_t> &message)
-{
-  uint64_t message_length_bytes = message.size();
-  uint32_t number_blocks = static_cast<uint32_t>((message_length_bytes + 8) >> 6U) + 1;
-  uint32_t total_length = number_blocks << 6U;
-  std::vector<uint8_t> padding_bytes(total_length - message_length_bytes);
-  padding_bytes[0] = static_cast<uint8_t>(0x80);
-  uint64_t message_length_bits = message_length_bytes << 3U;
-  for (uint32_t i = 0; i < 8; ++i) {
-    padding_bytes[padding_bytes.size() - 8 + i] = static_cast<uint8_t>(message_length_bits);
-    message_length_bits >>= 8U;
-  }
-
-  uint32_t a = INITIAL_A;
-  uint32_t b = INITIAL_B;
-  uint32_t c = INITIAL_C;
-  uint32_t d = INITIAL_D;
-
-  std::vector<uint32_t> buffer(16);
-  for (uint32_t i = 0; i < number_blocks; ++i) {
-    uint32_t index = i << 6U;
-    for (uint32_t j = 0; j < 64; index++, ++j) {
-      buffer[j >> 2U] =
-        (static_cast<uint32_t>(
-           (index < message_length_bytes) ? message[index] : padding_bytes[index - message_length_bytes])
-          << 24U)
-        | (buffer[j >> 2U] >> 8U);
-    }
-
-    uint32_t original_A = a;
-    uint32_t original_B = b;
-    uint32_t original_C = c;
-    uint32_t original_D = d;
-
-    for (uint32_t j = 0; j < 64; ++j) {
-      uint32_t div16 = j >> 4U;
-      uint32_t f = 0;
-      uint32_t buffer_index = j;
-      switch (div16) {
-      case 0:
-        f = (b & c) | (~b & d);
-        break;
-      case 1:
-        f = (b & d) | (c & ~d);
-        buffer_index = (buffer_index * 5 + 1) & 0x0FU;
-        break;
-      case 2:
-        f = b ^ c ^ d;
-        buffer_index = (buffer_index * 3 + 5) & 0x0FU;
-        break;
-      case 3:
-        f = c ^ (b | ~d);
-        buffer_index = (buffer_index * 7) & 0x0FU;
-        break;
-      }
-      uint32_t temp =
-        b + std::rotl(a + f + buffer[buffer_index] + K[j], static_cast<int>(SHIFT_AMOUNTS[(div16 << 2U) | (j & 3U)]));
-
-      a = d;
-      d = c;
-      c = b;
-      b = temp;
-    }
-
-    a += original_A;
-    b += original_B;
-    c += original_C;
-    d += original_D;
-  }
-
-  std::vector<uint8_t> md5(16);
-  uint32_t count = 0;
-  for (uint32_t i = 0; i < 4; ++i) {
-    uint32_t n = (i == 0) ? a : ((i == 1) ? b : ((i == 2) ? c : d));
-    for (uint32_t j = 0; j < 4; ++j) {
-      md5[count++] = static_cast<uint8_t>(n);
-      n >>= 8U;
-    }
-  }
-
-  return md5;
-}
-// NOLINTEND
-
-std::string to_hex_string(const std::vector<uint8_t> &bytes)
-{
-  std::string hex_string{};
-  std::stringstream stream;
-  for (const uint8_t &byte : bytes) {
-    stream << std::setfill('0') << std::setw(2) << std::hex << (byte & 0xffU);
-    hex_string += stream.str();
-    stream.str("");
-  }
-  return hex_string;
-}
-
-std::vector<uint8_t> to_byte_vector(const std ::string &text)
-{
-  std::vector<uint8_t> bytes;
-  bytes.reserve(text.size());
-  std::ranges::transform(
-    text, std::back_inserter(bytes), [](char chr) -> uint8_t { return static_cast<uint8_t>(chr); });
-  return bytes;
 }
 
 }// namespace afs

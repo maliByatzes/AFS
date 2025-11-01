@@ -1,5 +1,4 @@
 // #include <afsproject/afs.h>
-#include "afsproject/md5.h"
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
 #include <afsproject/db.h>
@@ -129,11 +128,6 @@ int main(int argc, [[maybe_unused]] char *argv[])
     return 1;
   }
 
-  const std::string text = "Hello, World!";
-  auto digest = MD5::compute(text);
-  std::cout << "MD5(\"" << text << "\") = " << MD5::to_hex(digest) << "\n";
-
-  /*
   std::string command = argv[1];// NOLINT
   if (command == "--help") {
     printHelp();
@@ -151,7 +145,7 @@ int main(int argc, [[maybe_unused]] char *argv[])
     std::cerr << "Unknown command: " << command << "\n";
     printHelp();
     return 1;
-  }*/
+  }
 
   return 0;
 }
