@@ -1,129 +1,149 @@
 #include <afsproject/md5.h>
-#include <algorithm>
-#include <bit>
 #include <cstdint>
-#include <iomanip>
-#include <ios>
-#include <iterator>
-#include <memory>
-#include <sstream>
 #include <string>
-#include <vector>
 
 namespace afs {
 
-MD5::MD5()
+// NOLINTBEGIN
+MD5::MD5() { init(); }
+
+void MD5::update(const std::string &input) { update(reinterpret_cast<const uint8_t *>(input.c_str()), input.length()); }
+
+void MD5::update(const uint8_t *input_buffer, size_t input_len)
 {
-  m_ctx = std::make_unique<MD5Context>();
-  m_ctx->size = 0UL;
+  uint32_t offset = m_size % 64;
+  m_size += input_len;
 
-  m_ctx->buffer[0] = INITIAL_A;
-  m_ctx->buffer[1] = INITIAL_B;
-  m_ctx->buffer[2] = INITIAL_C;
-  m_ctx->buffer[3] = INITIAL_D;
-}
-
-void MD5::update(const std::vector<uint8_t> &message)
-{
-  const uint64_t message_length = message.size();
-  std::vector<uint32_t> input(16);
-  uint32_t offset = m_ctx->size % 64;
-  m_ctx->size += message_length;
-
-  for (uint32_t i = 0; i < message_length; ++i) {
-    m_ctx->input.at(offset++) = message.at(i);
+  for (size_t i = 0; i < input_len; ++i) {
+    m_input.at(offset++) = input_buffer[i];
 
     if (offset % 64 == 0) {
-      for (uint64_t j = 0; j < 16; ++j) {
-        input.at(j) = (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 3)) << 24U)
-                      | (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 2)) << 16U)
-                      | (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 1)) << 8U)
-                      | static_cast<uint32_t>(m_ctx->input.at(j * 4));
+      std::array<uint32_t, 16> input_block{};
+      for (unsigned int j = 0; j < 16; ++j) {
+        input_block.at(j) =
+          static_cast<uint32_t>(m_input.at((j * 4) + 3)) << 24U | static_cast<uint32_t>(m_input.at((j * 4) + 2)) << 16U
+          | static_cast<uint32_t>(m_input.at((j * 4) + 1)) << 8U | static_cast<uint32_t>(m_input.at((j * 4)));
       }
-      step(input);
+      step(input_block);
       offset = 0;
     }
   }
 }
 
-void MD5::finalize()
+std::array<uint8_t, 16> MD5::finalize()
 {
-  std::vector<uint32_t> input(16);
-  const uint32_t offset = m_ctx->size % 64;
-  const uint32_t padding_length = offset < 56 ? 56 - offset : (56 + 24) - offset;
+  unsigned int offset = m_size % 64;
+  unsigned int padding_length = offset < 56 ? 56 - offset : (56 + 64) - offset;
 
-  std::vector<uint8_t> padding_bytes(padding_length);
-  padding_bytes[0] = static_cast<uint8_t>(0x80);
-  for (auto &byte : padding_bytes) { byte = static_cast<uint8_t>(0x00); }
+  update(PADDING.data(), padding_length);
+  m_size -= padding_length;
 
-  update(padding_bytes);
-  m_ctx->size -= static_cast<uint64_t>(padding_length);
+  std::array<uint32_t, 16> input_block{};
+  for (unsigned int j = 0; j < 14; ++j) {
+    input_block.at(j) =
+      static_cast<uint32_t>(m_input.at((j * 4) + 3)) << 24U | static_cast<uint32_t>(m_input.at((j * 4) + 2)) << 16U
+      | static_cast<uint32_t>(m_input.at((j * 4) + 1)) << 8U | static_cast<uint32_t>(m_input.at((j * 4)));
+  }
+  input_block.at(14) = static_cast<uint32_t>(m_size * 8);
+  input_block.at(15) = static_cast<uint32_t>((m_size * 8) >> 32U);
 
-  for (uint64_t j = 0; j < 14; ++j) {
-    input.at(j) = (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 3)) << 24U)
-                  | (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 2)) << 16U)
-                  | (static_cast<uint32_t>(m_ctx->input.at((j * 4) + 1)) << 8U)
-                  | static_cast<uint32_t>(m_ctx->input.at((j * 4)));
+  step(input_block);
+
+  std::array<uint8_t, 16> digest{};
+  for (unsigned int i = 0; i < 4; ++i) {
+    digest.at((i * 4) + 0) = static_cast<uint8_t>((m_buffer.at(i) & 0x000000FFU));
+    digest.at((i * 4) + 1) = static_cast<uint8_t>((m_buffer.at(i) & 0x0000FF00U) >> 8U);
+    digest.at((i * 4) + 2) = static_cast<uint8_t>((m_buffer.at(i) & 0x00FF0000U) >> 16U);
+    digest.at((i * 4) + 3) = static_cast<uint8_t>((m_buffer.at(i) & 0xFF000000U) >> 24U);
   }
 
-  input.at(14) = static_cast<uint32_t>(m_ctx->size * 8);
-  input.at(15) = static_cast<uint32_t>((m_ctx->size * 8) >> 32U);
-
-  step(input);
-
-  for (uint32_t i = 0; i < 4; ++i) {
-    m_ctx->digest.at((i * 4) + 0) = static_cast<uint8_t>((m_ctx->buffer.at(i) & 0x000000FFU));
-    m_ctx->digest.at((i * 4) + 1) = static_cast<uint8_t>((m_ctx->buffer.at(i) & 0x0000FF00U) >> 8U);
-    m_ctx->digest.at((i * 4) + 2) = static_cast<uint8_t>((m_ctx->buffer.at(i) & 0x00FF0000U) >> 16U);
-    m_ctx->digest.at((i * 4) + 3) = static_cast<uint8_t>((m_ctx->buffer.at(i) & 0xFF000000U) >> 24U);
-  }
+  return digest;
 }
 
-void MD5::step(std::vector<uint32_t> &input)
+std::array<uint8_t, 16> MD5::compute(const std::string &input)
 {
-  // NOLINTBEGIN
-  uint32_t AA = m_ctx->buffer[0];
-  uint32_t BB = m_ctx->buffer[1];
-  uint32_t CC = m_ctx->buffer[2];
-  uint32_t DD = m_ctx->buffer[3];
+  MD5 md5;
+  md5.update(input);
+  return md5.finalize();
+}
 
-  uint32_t E;
-  uint32_t j;
-  // NOLINTEND
+std::string MD5::to_hex(const std::array<uint8_t, 16> &digest)
+{
+  const char hex_chars[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(32);
 
-  for (uint32_t i = 0; i < 64; ++i) {
+  for (uint8_t byte : digest) {
+    result += hex_chars[(byte >> 4U) & 0x0FU];
+    result += hex_chars[byte & 0x0FU];
+  }
+
+  return result;
+}
+
+constexpr uint32_t MD5::F(uint32_t x, uint32_t y, uint32_t z) { return (x & y) | (~x & z); }
+
+constexpr uint32_t MD5::G(uint32_t x, uint32_t y, uint32_t z) { return (x & z) | (y & ~z); }
+
+constexpr uint32_t MD5::H(uint32_t x, uint32_t y, uint32_t z) { return x ^ y ^ z; }
+
+constexpr uint32_t MD5::I(uint32_t x, uint32_t y, uint32_t z) { return y ^ (x | ~z); }
+
+constexpr uint32_t MD5::rotate_left(uint32_t x, uint32_t n) { return (x << n) | (x >> (32 - n)); }// NOLINT
+
+void MD5::init()
+{
+  m_size = 0;
+  m_buffer[0] = A;
+  m_buffer[1] = B;
+  m_buffer[2] = C;
+  m_buffer[3] = D;
+}
+
+void MD5::step(const std::array<uint32_t, 16> &input)
+{
+  uint32_t AA = m_buffer[0];
+  uint32_t BB = m_buffer[1];
+  uint32_t CC = m_buffer[2];
+  uint32_t DD = m_buffer[3];
+
+  for (unsigned int i = 0; i < 64; ++i) {
+    uint32_t E;
+    unsigned int j;
+
     switch (i / 16) {
     case 0:
-      E = (BB & CC) | (~BB & DD);
+      E = F(BB, CC, DD);
       j = i;
       break;
     case 1:
-      E = (BB & DD) | (CC & ~DD);
+      E = G(BB, CC, DD);
       j = ((i * 5) + 1) % 16;
       break;
     case 2:
-      E = BB ^ CC ^ DD;
+      E = H(BB, CC, DD);
       j = ((i * 3) + 5) % 16;
       break;
     default:
-      E = CC ^ (BB | ~DD);
+      E = I(BB, CC, DD);
       j = (i * 7) % 16;
       break;
     }
 
-    const uint32_t temp = DD;
+    uint32_t temp = DD;
     DD = CC;
     CC = BB;
-    BB = BB + std::rotl(AA + E + K[i] + input[j], static_cast<int>(SHIFT_AMOUNTS[i]));
+    BB = BB + rotate_left(AA + E + K.at(i) + input.at(j), S.at(i));
     AA = temp;
   }
 
-  m_ctx->buffer[0] += AA;
-  m_ctx->buffer[1] += BB;
-  m_ctx->buffer[2] += CC;
-  m_ctx->buffer[3] += DD;
+  m_buffer[0] += AA;
+  m_buffer[1] += BB;
+  m_buffer[2] += CC;
+  m_buffer[3] += DD;
 }
-
+// NOLINTEND
+/*
 std::string MD5::to_hex_string(const std::vector<uint8_t> &bytes)
 {
   std::string hex_string{};
@@ -153,7 +173,7 @@ std::vector<uint8_t> MD5::string(const std::string &message)
   std::vector<uint8_t> result(m_ctx->digest.begin(), m_ctx->digest.end());
   return result;
 }
-/*
+
 std::vector<uint8_t> computeMD5(const std::vector<uint8_t> &message)
 {
   uint64_t message_length_bytes = message.size();

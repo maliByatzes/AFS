@@ -129,8 +129,9 @@ int main(int argc, [[maybe_unused]] char *argv[])
     return 1;
   }
 
-  MD5 md5{};
-  std::cout << "Hello, World! ==> " << MD5::to_hex_string(md5.string("Hello, World!")) << "\n";
+  const std::string text = "Hello, World!";
+  auto digest = MD5::compute(text);
+  std::cout << "MD5(\"" << text << "\") = " << MD5::to_hex(digest) << "\n";
 
   /*
   std::string command = argv[1];// NOLINT
