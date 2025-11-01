@@ -1,4 +1,5 @@
 // #include <afsproject/afs.h>
+#include "afsproject/md5.h"
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
 #include <afsproject/db.h>
@@ -121,13 +122,17 @@ void runCLIMode(const std::string &directory_path)
 // ./AFS --populate /path/to/audio_files
 // To run in server mode:
 // ./AFS --server
-int main(int argc, char *argv[])
+int main(int argc, [[maybe_unused]] char *argv[])
 {
   if (argc < 2) {
     printHelp();
     return 1;
   }
 
+  MD5 md5{};
+  std::cout << "Hello, World! ==> " << MD5::to_hex_string(md5.string("Hello, World!")) << "\n";
+
+  /*
   std::string command = argv[1];// NOLINT
   if (command == "--help") {
     printHelp();
@@ -145,7 +150,7 @@ int main(int argc, char *argv[])
     std::cerr << "Unknown command: " << command << "\n";
     printHelp();
     return 1;
-  }
+  }*/
 
   return 0;
 }

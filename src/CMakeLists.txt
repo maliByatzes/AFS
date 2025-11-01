@@ -9,6 +9,7 @@ add_library(afsproject_lib
   spectrogram.cpp
   afs.cpp
   db.cpp
+  md5.cpp
 )
 
 target_link_libraries(afsproject_lib

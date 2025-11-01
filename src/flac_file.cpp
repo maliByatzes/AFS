@@ -586,13 +586,14 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
   // std::cout << "\nSuccessfully decoded " << frame_count << " frames.\n";
   // std::cout << "Total PCM samples: " << m_pcm_data.size() << "\n";
 
+  /*
   if (m_has_md5_signature) {
     if (!validateMD5Checksum()) {
       std::cerr << "⚠️ WARNING: MD5 checksum validation failed.\n";
       return false;
     }
     std::cout << "MD5 checksum validation: ✅ PASSED\n";
-  }
+  }*/
 
   return frame_count > 0;
 }
@@ -658,6 +659,11 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
     }
   }
 
+  for (const auto &smpl : channel_data.value()) {
+    for (const auto &sss : smpl) { std::cout << sss << " "; }
+  }
+
+  std::cout << "\n";
   m_samples = channel_data.value();
   storeSamples(channel_data.value());
 
@@ -1489,10 +1495,6 @@ bool FlacFile::validateMD5Checksum()
 
   return match;*/
 
-  for (const auto &smpl : m_samples) {
-    for (const auto &sss : smpl) { std::cout << sss << " "; }
-  }
-  std::cout << "\n";
 
   if (m_samples.empty() || m_samples[0].empty()) {
     std::cerr << "No PCM data available to validate.\n";
