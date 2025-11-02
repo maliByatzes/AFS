@@ -2,6 +2,7 @@
 #define flac_file_h_
 
 #include <afsproject/audio_file.h>
+#include <afsproject/md5.h>
 #include <array>
 #include <cstdint>
 #include <etl/bit_stream.h>
@@ -66,7 +67,8 @@ private:
   uint32_t m_bits_read{};
   std::array<uint8_t, 16> m_md5_checksum;
   bool m_has_md5_signature = false;
-  Subframes m_samples;
+  std::unique_ptr<MD5> m_md5;
+  // Subframes m_samples;
   // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);
