@@ -68,7 +68,6 @@ private:
   std::array<uint8_t, 16> m_md5_checksum;
   bool m_has_md5_signature = false;
   std::unique_ptr<MD5> m_md5;
-  // Subframes m_samples;
   // NOTE: could store `etl::bit_stream_reader` as a member variable.
 
   bool decodeStreaminfo(etl::bit_stream_reader &, uint32_t, uint8_t);

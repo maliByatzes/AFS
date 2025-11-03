@@ -1,5 +1,5 @@
-#ifndef MD5_H_
-#define MD5_H_
+#ifndef md5_h_
+#define md5_h_
 
 #include <array>
 #include <cstdint>
