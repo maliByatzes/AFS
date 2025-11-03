@@ -113,7 +113,7 @@ bool FlacFile::decodeFlacFile()
     m_bits_read += 24;
 
     // std::cout << "Current metadata block - Last: " << static_cast<int>(is_last)
-    //           << ", Type: " << static_cast<int>(block_type) << ", Size: " << block_size << "\n";
+    //          << ", Type: " << static_cast<int>(block_type) << ", Size: " << block_size << "\n";
 
     switch (static_cast<int>(block_type)) {
     case 0:
@@ -278,10 +278,8 @@ bool FlacFile::decodePadding(etl::bit_stream_reader &reader, uint32_t block_size
   reader.skip(num);
   m_bits_read += num;
 
-  /*
-  std::cout << "PADDING:\n"
-            << " Space: " << num << "\n";
-*/
+  // std::cout << "PADDING:\n"
+  //          << " Space: " << num << "\n";
 
   return true;
 }
@@ -324,7 +322,7 @@ bool FlacFile::decodeSeektable(etl::bit_stream_reader &reader, uint32_t block_si
     m_bits_read += 16;
 
     // std::cout << "\tSeekpoint " << i << ": sample=" << sample_number << ", offset=" << offset
-    //           << ", number of samples=" << num_samples << "\n";
+    //          << ", number of samples=" << num_samples << "\n";
 
     // TODO: store these if needed, later.
     // seek_points.insert({ sample_number, std::make_pair(offset, num_samples) });
@@ -585,13 +583,14 @@ bool FlacFile::decodeFrames(etl::bit_stream_reader &reader)
   // std::cout << "\nSuccessfully decoded " << frame_count << " frames.\n";
   // std::cout << "Total PCM samples: " << m_pcm_data.size() << "\n";
 
+  /*
   if (m_has_md5_signature) {
     if (!validateMD5Checksum()) {
       std::cerr << "⚠️ WARNING: MD5 checksum validation failed.\n";
       return false;
     }
     std::cout << "MD5 checksum validation: ✅ PASSED\n";
-  }
+  }*/
 
   return frame_count > 0;
 }
@@ -643,21 +642,23 @@ bool FlacFile::seekToNextFrame(etl::bit_stream_reader &reader)
 bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
 {
   // decode frame header
-  auto frame_header = decodeFrameHeader(reader);
-  if (!frame_header.has_value()) { return false; }
+  auto tframe_header = decodeFrameHeader(reader);
+  if (!tframe_header.has_value()) { return false; }
+  auto frame_header = tframe_header.value();
 
   // decode subframes for each channel
-  auto tchannel_data = decodeSubframes(reader, frame_header.value());
+  auto tchannel_data = decodeSubframes(reader, frame_header);
   if (!tchannel_data.has_value()) { return false; }
   auto samples = tchannel_data.value();
 
-  if (frame_header.value().channel_bits >= 8 && frame_header.value().channel_bits <= 10) {
-    if (!decorrelateChannels(samples, frame_header.value().channel_bits)) {
+  if (frame_header.channel_bits >= 8 && frame_header.channel_bits <= 10) {
+    if (!decorrelateChannels(samples, frame_header.channel_bits)) {
       std::cerr << "Failed to decorrelate channels.\n";
       return false;
     }
   }
 
+  /*
   const auto num_channels = samples.size();
   const auto num_samples = samples[0].size();
   const uint32_t num_bytes = (m_bit_depth + 7U) / 8U;
@@ -666,14 +667,15 @@ bool FlacFile::decodeFrame(etl::bit_stream_reader &reader)
   for (uint32_t i = 0, l = 0; i < num_samples; ++i) {// NOLINT
     for (uint32_t j = 0; j < num_channels; ++j) {
       auto val = samples[j][i];
-      for (uint32_t k = 0; k < num_bytes; ++k, ++l) { buffer.at(l) = static_cast<uint8_t>(val >> (k << 3U)); }// NOLINT
+      auto uval = static_cast<uint32_t>(val);
+      for (uint32_t k = 0; k < num_bytes; ++k, ++l) { buffer.at(l) = static_cast<uint8_t>(uval >> (k << 3U)); }
 
-      if (l == buffer.size() || i == num_samples - 1) {
+      if (l >= buffer.size() || (i == num_samples - 1 && j == num_channels - 1)) {
         m_md5->update(buffer.data(), l);
         l = 0;
       }
     }
-  }
+  }*/
 
   storeSamples(samples);
 

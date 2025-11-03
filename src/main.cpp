@@ -121,7 +121,7 @@ void runCLIMode(const std::string &directory_path)
 // ./AFS --populate /path/to/audio_files
 // To run in server mode:
 // ./AFS --server
-int main(int argc, [[maybe_unused]] char *argv[])
+int main(int argc, char *argv[])
 {
   if (argc < 2) {
     printHelp();
