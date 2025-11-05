@@ -226,7 +226,7 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Total samples: " << total_samples << "\n";
 
   if (m_has_md5_signature) {
-    std::cout << " MD5 signature: " << MD5::to_hex(m_md5_checksum) << "\n";
+    std::cout << " MD5 signature: " << MD5::toHex(m_md5_checksum) << "\n";
     m_md5 = std::make_unique<MD5>();
   } else {
     std::cout << " MD5 signature: (not set)\n";
@@ -1480,8 +1480,8 @@ bool FlacFile::validateMD5Checksum()
   const bool match = std::equal(computed_md5.begin(), computed_md5.end(), m_md5_checksum.begin());
 
   if (!match) {
-    std::cout << "Expected MD5: " << MD5::to_hex(m_md5_checksum) << "\n";
-    std::cout << "Computed MD5: " << MD5::to_hex(computed_md5) << "\n";
+    std::cout << "Expected MD5: " << MD5::toHex(m_md5_checksum) << "\n";
+    std::cout << "Computed MD5: " << MD5::toHex(computed_md5) << "\n";
   }
 
   return match;

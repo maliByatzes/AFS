@@ -2,5 +2,6 @@ AFS
 
 Audio Fingerprinting System
 
+TODO: optimization, coz this is not as fast but not too slow.
 TODO: include NumCpp as a github submodule (make program platform independent).
 TODO: make this README look better, buh.

@@ -88,6 +88,25 @@ void processAudioFile(const std::string &filepath)
   }
 }
 
+void searchAudioFile(const std::string &file)
+{
+  const AudioEngine engine;
+  const std::unique_ptr<IAudioFile> audio = engine.loadAudioFile(file);
+
+  if (!audio) {
+    std::cerr << "Failed to load audio file: " << file << "\n";
+    return;
+  }
+
+  try {
+    std::cout << "Searching for " << file << "...\n";
+    // AFS::searchForSong(*audio);
+  } catch (const std::exception &e) {
+    std::cerr << "An unrecoverable error occurred: " << e.what() << "\n";
+    return;
+  }
+}
+
 void printHelp()
 {
   // TODO: Format this better by NOT using spaces like this
@@ -97,6 +116,7 @@ void printHelp()
   std::cout << "  --version                    Display tool version.\n";
   std::cout << "  --populate <directory_path>  Process audio files in directory_path.\n";
   std::cout << "  --server                     Run a server.\n";
+  std::cout << "  --search <file>              Search for the audio file.\n";
 }
 
 void printVersion() { std::cout << "AFS v0.0.1\n"; }
@@ -150,6 +170,8 @@ int main(int argc, char *argv[])
     runCLIMode(argv[2]);// NOLINT
   } else if (command == "--server") {
     runServerMode();
+  } else if (command == "--search") {
+    searchAudioFile(argv[2]);// NOLINT
   } else {
     std::cerr << "Unknown command: " << command << "\n";
     printHelp();

@@ -69,7 +69,7 @@ std::array<uint8_t, 16> MD5::compute(const std::string &input)
   return md5.finalize();
 }
 
-std::string MD5::to_hex(const std::array<uint8_t, 16> &digest)
+std::string MD5::toHex(const std::array<uint8_t, 16> &digest)
 {
   const char hex_chars[] = "0123456789abcdef";
   std::string result;

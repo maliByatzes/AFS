@@ -18,7 +18,7 @@ public:
   void update(const uint8_t *, size_t);
   std::array<uint8_t, 16> finalize();
   static std::array<uint8_t, 16> compute(const std::string &);
-  static std::string to_hex(const std::array<uint8_t, 16> &);
+  static std::string toHex(const std::array<uint8_t, 16> &);
 
 private:
   // NOLINTBEGIN

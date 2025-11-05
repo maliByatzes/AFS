@@ -1,7 +1,7 @@
-#include "afsproject/db.h"
 #include <NumCpp/NdArray/NdArrayCore.hpp>
 #include <afsproject/afs.h>
 #include <afsproject/audio_file.h>
+#include <afsproject/db.h>
 #include <afsproject/fft.h>
 #include <afsproject/spectrum.h>
 #include <afsproject/wave.h>
@@ -184,14 +184,12 @@ void AFS::filtering(Matrix &matrix)
 
   for (auto &bins : matrix) {
     // 1. Divide the bins int logarithmic bands
-    // NOLINTBEGIN
     std::vector<std::pair<int, double>> very_low_sound_bins(bins.begin(), bins.begin() + 10);
     std::vector<std::pair<int, double>> low_sound_bins(bins.begin() + 10, bins.begin() + 20);
     std::vector<std::pair<int, double>> low_mid_sound_bins(bins.begin() + 20, bins.begin() + 40);
     std::vector<std::pair<int, double>> mid_sound_bins(bins.begin() + 40, bins.begin() + 80);
     std::vector<std::pair<int, double>> mid_high_sound_bins(bins.begin() + 80, bins.begin() + 160);
     std::vector<std::pair<int, double>> high_sound_bins(bins.begin() + 160, bins.begin() + 513);
-    // NOLINTEND
 
     // 2. Keep the strongest bin in each band
     std::vector<std::pair<int, double>> strongest_bins;
@@ -265,7 +263,6 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix, long long rsong_id)
       address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT
 
       uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;// NOLINT
-      // TODO: Change this >.<
       uint32_t song_id = static_cast<uint64_t>(rsong_id) & THIRTY_TWO_BITS_MASK;// NOLINT
 
       uint64_t couple = 0;
