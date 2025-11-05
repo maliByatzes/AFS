@@ -37,7 +37,7 @@ TEST_CASE_METHOD(FlacDecoderFixture, "Load valid stereo FLAC file", "[flac][ster
 
   auto flac = std::make_unique<afs::FlacFile>();
   const bool result = flac->load(path);
-  REQUIRE(!result);
+  REQUIRE(result);
 }
 
 }// namespace afs::test

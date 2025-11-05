@@ -62,6 +62,7 @@ public:
   [[nodiscard]] bool isStereo() const override;
   [[nodiscard]] uint16_t getBitDepth() const override;
   [[nodiscard]] int getNumSamplesPerChannel() const override;
+  [[nodiscard]] Metadata getMetadata() const override;
 
 private:
   std::vector<uint8_t> m_file_data;

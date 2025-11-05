@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS songs (
     artist            TEXT NOT NULL,
     album             TEXT,
     genre             TEXT,
-    release_year      INTEGER,
+    release_date      TEXT,
     duration_seconds  REAL,
     file_path         TEXT NOT NULL UNIQUE,
     created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),

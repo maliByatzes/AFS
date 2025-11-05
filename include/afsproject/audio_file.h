@@ -7,6 +7,15 @@
 
 namespace afs {
 
+struct Metadata
+{
+  std::string title;
+  std::string artist;
+  std::string album;
+  std::string genre;
+  std::string date;
+};
+
 class IAudioFile// NOLINT
 {
 public:
@@ -33,6 +42,7 @@ public:
   [[nodiscard]] virtual uint16_t getBitDepth() const = 0;
   [[nodiscard]] virtual int getNumSamplesPerChannel() const = 0;
   [[nodiscard]] virtual double getDurationSeconds() const = 0;
+  [[nodiscard]] virtual Metadata getMetadata() const = 0;
 
 protected:
   std::string m_file_path;
@@ -42,6 +52,7 @@ protected:
   double m_duration_seconds{};
   uint16_t m_bit_depth{};
   uint16_t m_format_tag{};
+  Metadata m_metadata{};
 };
 
 }// namespace afs

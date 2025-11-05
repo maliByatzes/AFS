@@ -1,3 +1,4 @@
+#include <afsproject/audio_file.h>
 #include <afsproject/either.h>
 #include <afsproject/wave_file.h>
 #include <algorithm>
@@ -80,6 +81,8 @@ int WaveFile::getNumSamplesPerChannel() const
     return 0;
   }
 }
+
+Metadata WaveFile::getMetadata() const { return m_metadata; }
 
 WaveHeaderChunk WaveFile::decodeHeaderChunk()
 {

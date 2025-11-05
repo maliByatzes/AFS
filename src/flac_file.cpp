@@ -1,7 +1,9 @@
+#include <afsproject/audio_file.h>
 #include <afsproject/flac_file.h>
 #include <afsproject/md5.h>
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <etl/bit_stream.h>
@@ -82,6 +84,8 @@ int FlacFile::getNumSamplesPerChannel() const
   }
 }
 
+Metadata FlacFile::getMetadata() const { return m_metadata; }
+
 bool FlacFile::decodeFlacFile()
 {
   const etl::span<const uint8_t> data_span(m_file_data.data(), m_file_data.size());
@@ -122,7 +126,7 @@ bool FlacFile::decodeFlacFile()
       break;
     case 1:
       // std::cout << "Processin' the padding block.\n";
-      decodePadding(reader, block_size);
+      if (!decodePadding(reader, block_size)) { return false; }
       break;
     case 2:
       // std::cout << "Processin' the application block.\n";
@@ -358,13 +362,18 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
 
   // std::cout << "number of fields: " << num_of_fields << "\n";
 
+  auto to_lower = [](std::string str) -> std::string {
+    std::ranges::transform(str, str.begin(), [](unsigned char chr) { return std::tolower(chr); });
+    return str;
+  };
+
   for (uint32_t i = 0; i < num_of_fields; ++i) {
     // 4 bytes -> comment/field length (little endian)
     auto temp_field_len = reader.read<uint32_t>(32).value();
     m_bits_read += 32;
     const uint32_t field_len = ((temp_field_len >> 24U) & 0xFFU) | ((temp_field_len >> 16U) & 0xFFU)
                                | ((temp_field_len >> 8U) & 0xFFU) | (temp_field_len & 0xFFU);
-    // std::cout << "field length: " << field_len << "\n";
+    std::cout << "field length: " << field_len << "\n";
 
     std::string field;
     field.reserve(field_len);
@@ -378,11 +387,17 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
     if (equals_pos != std::string::npos) {
       const std::string tag = field.substr(0, equals_pos);
       const std::string value = field.substr(equals_pos + 1);
-      // std::cout << "\t" << tag << " = " << value << "\n";
+      std::cout << "\t" << tag << " = " << value << "\n";
+
+      if (to_lower(tag) == "title") { m_metadata.title = value; }
+      if (to_lower(tag) == "artist" || to_lower(tag) == "albumartist") { m_metadata.artist = value; }
+      if (to_lower(tag) == "album") { m_metadata.album = value; }
+      if (to_lower(tag) == "genre") { m_metadata.genre = value; }
+      if (to_lower(tag) == "date") { m_metadata.date = value; }
 
       if (tag == "WAVEFORMATEXTENSIBLE_CHANNEL_MASK") { m_channel_mask = static_cast<uint32_t>(std::stoi(value)); }
     } else {
-      // std::cout << "\t" << field << "\n";
+      std::cout << "\t" << field << "\n";
     }
   }
 

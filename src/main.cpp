@@ -24,6 +24,15 @@ long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::str
 
     SQLiteDB::Statement stmt(db, sql);
 
+    auto metadata = audio_file.getMetadata();
+
+    std::cout << "Metadata in storeSongMetadata:\n"
+              << " Title: " << metadata.title << "\n"
+              << " Artist: " << metadata.artist << "\n"
+              << " Album: " << metadata.album << "\n"
+              << " Date: " << metadata.date << "\n"
+              << " Genre: " << metadata.genre << "\n";
+
     // NOTE: this is temporary
     const std::filesystem::path path(filepath);
     std::cout << "title: " << path.filename() << "\n";
