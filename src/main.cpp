@@ -1,8 +1,8 @@
-// #include <afsproject/afs.h>
+#include <afsproject/afs.h>
 #include <afsproject/audio_engine.h>
 #include <afsproject/audio_file.h>
 #include <afsproject/db.h>
-// #include <exception>
+#include <exception>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -15,8 +15,9 @@ namespace fs = std::filesystem;
 long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::string &filepath)// NOLINT
 {
   const std::string sql =
-    "INSERT INTO songs (title, artist, duration_seconds, file_path, sample_rate_hz, bitrate_kbps) VALUES (?, ?, ?, ?, "
-    "?, ?);";
+    "INSERT INTO songs (title, artist, album, genre, release_date, duration_seconds, file_path, sample_rate_hz, "
+    "bitrate_kbps) VALUES (?, ?, ?, ?, "
+    "?, ?, ?, ?, ?);";
   long long song_id = -1;
 
   try {
@@ -33,17 +34,18 @@ long long storeSongMetadata(IAudioFile &audio_file, SQLiteDB &db, const std::str
               << " Date: " << metadata.date << "\n"
               << " Genre: " << metadata.genre << "\n";
 
-    // NOTE: this is temporary
     const std::filesystem::path path(filepath);
-    std::cout << "title: " << path.filename() << "\n";
 
-    stmt.bindText(1, path.filename());
-    // NOTE: this is also temporary
-    stmt.bindText(2, "");
-    stmt.bindText(3, std::to_string(audio_file.getDurationSeconds()));
-    stmt.bindText(4, filepath);
-    stmt.bindText(5, std::to_string(audio_file.getSampleRate()));// NOLINT
-    stmt.bindText(6, std::to_string(audio_file.getBitDepth()));// NOLINT
+    stmt.bindText(1, metadata.title);
+    stmt.bindText(2, metadata.artist);
+    stmt.bindText(3, metadata.album);
+    stmt.bindText(4, metadata.genre);
+    stmt.bindText(5, metadata.date);
+    stmt.bindText(6, std::to_string(audio_file.getDurationSeconds()));
+    stmt.bindText(7, filepath);
+    stmt.bindText(8, std::to_string(audio_file.getSampleRate()));// NOLINT
+    stmt.bindText(9, std::to_string(audio_file.getBitDepth()));// NOLINT
+
 
     stmt.step();
 
@@ -69,8 +71,6 @@ void processAudioFile(const std::string &filepath)
     return;
   }
 
-  // disable adding songs to database for now
-  /*
   try {
     SQLiteDB my_db("afs.db");
 
@@ -85,7 +85,7 @@ void processAudioFile(const std::string &filepath)
   } catch (const std::exception &e) {
     std::cerr << "An unrecoverable error occurred: " << e.what() << "\n";
     return;
-  }*/
+  }
 }
 
 void printHelp()

@@ -223,14 +223,14 @@ bool FlacFile::decodeStreaminfo(etl::bit_stream_reader &reader, uint32_t block_s
             << " Sample rate: " << sample_rate << "\n"
             << " Channels: " << num_channels << "\n"
             << " Bits per sample: " << bits_per_samples << "\n"
-            << " Total samples: " << total_samples << "\n";*/
+            << " Total samples: " << total_samples << "\n";
 
   if (m_has_md5_signature) {
     std::cout << " MD5 signature: " << MD5::to_hex(m_md5_checksum) << "\n";
     m_md5 = std::make_unique<MD5>();
   } else {
     std::cout << " MD5 signature: (not set)\n";
-  }
+  }*/
 
   if (min_block_size < 16 || max_block_size < 16 || min_block_size > max_block_size) {
     std::cerr << "Invalid minimum/maxmimum block sizes.\n";
@@ -373,7 +373,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
     m_bits_read += 32;
     const uint32_t field_len = ((temp_field_len >> 24U) & 0xFFU) | ((temp_field_len >> 16U) & 0xFFU)
                                | ((temp_field_len >> 8U) & 0xFFU) | (temp_field_len & 0xFFU);
-    std::cout << "field length: " << field_len << "\n";
+    // std::cout << "field length: " << field_len << "\n";
 
     std::string field;
     field.reserve(field_len);
@@ -387,7 +387,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
     if (equals_pos != std::string::npos) {
       const std::string tag = field.substr(0, equals_pos);
       const std::string value = field.substr(equals_pos + 1);
-      std::cout << "\t" << tag << " = " << value << "\n";
+      // std::cout << "\t" << tag << " = " << value << "\n";
 
       if (to_lower(tag) == "title") { m_metadata.title = value; }
       if (to_lower(tag) == "artist" || to_lower(tag) == "albumartist") { m_metadata.artist = value; }
@@ -397,7 +397,7 @@ bool FlacFile::decodeVorbiscomment(etl::bit_stream_reader &reader, [[maybe_unuse
 
       if (tag == "WAVEFORMATEXTENSIBLE_CHANNEL_MASK") { m_channel_mask = static_cast<uint32_t>(std::stoi(value)); }
     } else {
-      std::cout << "\t" << field << "\n";
+      // std::cout << "\t" << field << "\n";
     }
   }
 
