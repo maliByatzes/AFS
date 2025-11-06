@@ -2,10 +2,10 @@
 #define DB_H_
 
 #include "sqlite3.h"
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <filesystem>
 
 namespace fs = std::filesystem;
 
@@ -57,13 +57,17 @@ public:
     void bindLongLong(int index, long long value);
     int step();
     int columnInt(int index);
+    std::string columText(int index);
+    double columnDouble(int index);
+    long long columnLongLong(int index);
     void reset();
-  
+
   private:
     sqlite3_stmt *m_stmt = nullptr;
   };
 
   [[nodiscard]] sqlite3 *get() const;
+
 private:
   std::unique_ptr<sqlite3, Deleter> m_db = nullptr;
 };

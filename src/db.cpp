@@ -78,20 +78,11 @@ void SQLiteDB::Statement::bindText(int index, const std::string &text)
   sqlite3_bind_text(m_stmt, index, text.c_str(), -1, SQLITE_TRANSIENT);
 }
 
-void SQLiteDB::Statement::bindInt(int index, int value)
-{
-  sqlite3_bind_int(m_stmt, index, value);
-}
+void SQLiteDB::Statement::bindInt(int index, int value) { sqlite3_bind_int(m_stmt, index, value); }
 
-void SQLiteDB::Statement::bindDouble(int index, double value)
-{
-  sqlite3_bind_double(m_stmt, index, value);
-}
+void SQLiteDB::Statement::bindDouble(int index, double value) { sqlite3_bind_double(m_stmt, index, value); }
 
-void SQLiteDB::Statement::bindLongLong(int index, long long value)
-{
-  sqlite3_bind_int64(m_stmt, index, value);
-}
+void SQLiteDB::Statement::bindLongLong(int index, long long value) { sqlite3_bind_int64(m_stmt, index, value); }
 
 int SQLiteDB::Statement::step()
 {
@@ -103,6 +94,16 @@ int SQLiteDB::Statement::step()
 }
 
 int SQLiteDB::Statement::columnInt(int index) { return sqlite3_column_int(m_stmt, index); }
+
+std::string SQLiteDB::Statement::columText(int index)
+{
+  const char *text = reinterpret_cast<const char *>(sqlite3_column_text(m_stmt, index));
+  return text ? std::string(text) : std::string();// NOLINT
+}
+
+double SQLiteDB::Statement::columnDouble(int index) { return sqlite3_column_double(m_stmt, index); }
+
+long long SQLiteDB::Statement::columnLongLong(int index) { return sqlite3_column_int64(m_stmt, index); }
 
 void SQLiteDB::Statement::reset() { sqlite3_reset(m_stmt); }
 

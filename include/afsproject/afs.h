@@ -4,6 +4,7 @@
 #include <afsproject/audio_file.h>
 #include <afsproject/db.h>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -28,12 +29,13 @@ private:
   static void downSampling(IAudioFile &);
   static Matrix shortTimeFourierTransform(IAudioFile &);
   static void filtering(Matrix &);
-  static Fingerprint generateFingerprints(Matrix &, long long);
+  static Fingerprint generateFingerprints(Matrix &, std::optional<long long>);
 
 public:
   AFS() = default;
 
   static void storingFingerprints(IAudioFile &, long long, SQLiteDB &);
+  static void searchForSong(IAudioFile &, SQLiteDB &);
 };
 
 }// namespace afs

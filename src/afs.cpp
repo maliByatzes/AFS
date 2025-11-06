@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <optional>
+#include <sqlite3.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -66,7 +68,7 @@ void AFS::applyLowPassFilter(IAudioFile &audio_file)
   Wave wave(ys, int(audio_file.getSampleRate()));
 
   Spectrum spectrum = wave.makeSpectrum();
-  spectrum.lowPass(5000);// NOLINT
+  spectrum.lowPass(5000);
 
   const Wave filtered = spectrum.makeWave();
   const std::vector<double> pcm_data2 = filtered.getYs().toStlVector();
@@ -78,7 +80,7 @@ void AFS::downSampling(IAudioFile &audio_file)
 {
   // Downsample for sample rate @ 44100 Hz
 
-  if (audio_file.getSampleRate() == 44100) {// NOLINT
+  if (audio_file.getSampleRate() == 44100) {
     std::vector<double> pcm_data = audio_file.getPCMData();
     std::vector<double> new_pcm_data;
 
@@ -98,7 +100,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteD
   const std::string insert_data_sql = "INSERT INTO fingerprint_data (fingerprint_id, value) VALUES (?, ?);";
 
   try {
-    db.execute("BEGIN;");
+    SQLiteDB::Transaction transaction(db);
 
     SQLiteDB::Statement fg_stmt(db, insert_fingerprint_sql);
     SQLiteDB::Statement data_stmt(db, insert_data_sql);
@@ -120,11 +122,42 @@ void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteD
       }
     }
 
-    db.execute("COMMIT;");
+    transaction.commit();
     std::cout << "Successfully inserted fingerprints for song ID: " << song_id << "\n";
   } catch (const SQLiteException &e) {
-    db.execute("ROLLBACK;");
     std::cerr << "Failed to insert fingerprints. Rolled back transaction.\n" << e.what() << "\n";
+  }
+}
+
+void AFS::searchForSong(IAudioFile &audio_file, SQLiteDB &db)// NOLINT
+{
+  Matrix matrix{ shortTimeFourierTransform(audio_file) };
+  filtering(matrix);
+  const Fingerprint record_fgs{ generateFingerprints(matrix, std::nullopt) };
+
+  const std::string select_values_sql = "SELECT value FROM fingerprint_data WHERE fingerprints = ?;";
+
+  try {
+    SQLiteDB::Transaction transaction(db);
+    SQLiteDB::Statement select_stmt(db, select_values_sql);
+
+    for (const auto &pair : record_fgs) {
+      const auto address = pair.first;
+
+      select_stmt.bindInt(1, static_cast<int>(address));
+
+      while (select_stmt.step() == SQLITE_ROW) {
+        const int64_t value = select_stmt.columnLongLong(0);
+
+        std::cout << "Address: " << address << " has value: " << value << "\n";
+      }
+
+      select_stmt.reset();
+    }
+
+    transaction.commit();
+  } catch (const SQLiteException &e) {
+    std::cerr << "Failed to retrieve fingerprint values from database. Rolled back transaction.\n" << e.what() << "\n";
   }
 }
 
@@ -141,7 +174,7 @@ Matrix AFS::shortTimeFourierTransform(IAudioFile &audio_file)
   std::vector<double> window(sample_window);
 
   for (size_t i = 0; i < window.size(); ++i) {
-    double ans = 0.54 - (0.46 * std::cos((2.0 * M_PI * static_cast<double>(i)) / (sample_window - 1)));// NOLINT
+    const double ans = 0.54 - (0.46 * std::cos((2.0 * M_PI * static_cast<double>(i)) / (sample_window - 1)));// NOLINT
     window[i] = ans;
   }
 
@@ -206,7 +239,7 @@ void AFS::filtering(Matrix &matrix)
     // 3. Compute the average of these 6 powerful bins
     double sum = 0.0;
     for (const auto &bin : strongest_bins) { sum += bin.second; }
-    const double average = sum / 6;// NOLINT
+    const double average = sum / 6;
 
     // 4. Keep the bins that are above the mean
     const double coeff = 1.2;
@@ -223,14 +256,14 @@ void AFS::filtering(Matrix &matrix)
   matrix.swap(filtered_matrix);
 }
 
-Fingerprint AFS::generateFingerprints(Matrix &matrix, long long rsong_id)
+Fingerprint AFS::generateFingerprints(Matrix &matrix, std::optional<long long> rsong_id)
 {
   // tuple -> index, time, bin
   std::vector<std::tuple<int, int, int>> points;
 
   int index = 0;
   for (size_t i = 0; i < matrix.size(); ++i) {
-    int current_time = static_cast<int>(double(i) * TIME_STEP * 1000);// NOLINT
+    int current_time = static_cast<int>(double(i) * TIME_STEP * 1000);
     std::ranges::for_each(matrix[i], [&](std::pair<int, double> &bin) {
       points.emplace_back(index, current_time, bin.first);
       index++;
@@ -247,10 +280,10 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix, long long rsong_id)
     auto anchor_point = points[idx];
     const size_t starting_freq_idx = idx + 3;
     const std::vector<std::tuple<int, int, int>> target_zone(
-      points.begin() + int(starting_freq_idx), points.begin() + int(starting_freq_idx) + 5);// NOLINT
+      points.begin() + int(starting_freq_idx), points.begin() + int(starting_freq_idx) + 5);
 
     for (const auto &point : target_zone) {
-      int delta_time = std::get<1>(point) - std::get<1>(anchor_point);// NOLINT
+      const int delta_time = std::get<1>(point) - std::get<1>(anchor_point);
 
       // Packing into one value
       uint16_t freq_anchor = std::get<2>(anchor_point) & NINE_BITS_MASK;// NOLINT
@@ -259,15 +292,19 @@ Fingerprint AFS::generateFingerprints(Matrix &matrix, long long rsong_id)
 
       uint32_t address = 0;
       address |= freq_anchor;
-      address |= (static_cast<uint32_t>(freq_point) << 9);// NOLINT
-      address |= (static_cast<uint32_t>(delta_bits) << 18);// NOLINT
-
-      uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;// NOLINT
-      uint32_t song_id = static_cast<uint64_t>(rsong_id) & THIRTY_TWO_BITS_MASK;// NOLINT
+      address |= (static_cast<uint32_t>(freq_point) << 9U);
+      address |= (static_cast<uint32_t>(delta_bits) << 18U);
 
       uint64_t couple = 0;
-      couple |= time_of_anchor;
-      couple |= (static_cast<uint64_t>(song_id) << 32);// NOLINT
+      const uint32_t time_of_anchor = static_cast<uint32_t>(std::get<1>(anchor_point)) & THIRTY_TWO_BITS_MASK;
+      if (rsong_id.has_value()) {
+        const uint32_t song_id = static_cast<uint64_t>(rsong_id.value()) & THIRTY_TWO_BITS_MASK;
+
+        couple |= time_of_anchor;
+        couple |= (static_cast<uint64_t>(song_id) << 32U);
+      } else {
+        couple |= time_of_anchor;
+      }
 
       if (fingerprint_table.contains(address)) {
         fingerprint_table[address].push_back(couple);
