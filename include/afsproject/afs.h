@@ -35,7 +35,7 @@ public:
   AFS() = default;
 
   static void storingFingerprints(IAudioFile &, long long, SQLiteDB &);
-  static void searchForSong(IAudioFile &, SQLiteDB &);
+  static void searchForRecord(IAudioFile &, SQLiteDB &);
 };
 
 }// namespace afs

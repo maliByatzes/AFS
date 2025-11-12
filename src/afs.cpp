@@ -129,7 +129,7 @@ void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteD
   }
 }
 
-void AFS::searchForSong(IAudioFile &audio_file, SQLiteDB &db)// NOLINT
+void AFS::searchForRecord(IAudioFile &audio_file, SQLiteDB &db)// NOLINT
 {
   Matrix matrix{ shortTimeFourierTransform(audio_file) };
   filtering(matrix);

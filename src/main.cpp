@@ -99,8 +99,10 @@ void searchAudioFile(const std::string &file)
   }
 
   try {
+    SQLiteDB my_db("afs.db");
+
     std::cout << "Searching for " << file << "...\n";
-    // AFS::searchForSong(*audio);
+    AFS::searchForRecord(*audio, my_db);
   } catch (const std::exception &e) {
     std::cerr << "An unrecoverable error occurred: " << e.what() << "\n";
     return;
