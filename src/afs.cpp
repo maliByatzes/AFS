@@ -96,29 +96,25 @@ void AFS::storingFingerprints(IAudioFile &audio_file, long long song_id, SQLiteD
   filtering(matrix);
   const Fingerprint fingerprints{ generateFingerprints(matrix, song_id) };
 
-  const std::string insert_fingerprint_sql = "INSERT INTO fingerprints (id, song_id) VALUES (?, ?);";
-  const std::string insert_data_sql = "INSERT INTO fingerprint_data (fingerprint_id, value) VALUES (?, ?);";
+  const std::string insert_sql = "INSERT INTO fingerprints (hash, song_id, time_offset) VALUES (?, ?, ?);";
 
   try {
     SQLiteDB::Transaction transaction(db);
 
-    SQLiteDB::Statement fg_stmt(db, insert_fingerprint_sql);
-    SQLiteDB::Statement data_stmt(db, insert_data_sql);
+    SQLiteDB::Statement stmt(db, insert_sql);
 
     for (const auto &pair : fingerprints) {
-      const unsigned int fg_id = pair.first;
-      const auto &values = pair.second;
+      const unsigned int hash = pair.first;
+      const auto &couples = pair.second;
 
-      fg_stmt.bindInt(1, static_cast<int>(fg_id));
-      fg_stmt.bindLongLong(2, song_id);
-      fg_stmt.step();
-      fg_stmt.reset();
+      for (const unsigned long couple : couples) {
+        const uint32_t time_offset = couple & 0xFFFFFFFFU;
 
-      for (const unsigned long value : values) {
-        data_stmt.bindInt(1, static_cast<int>(fg_id));
-        data_stmt.bindLongLong(2, static_cast<long long>(value));
-        data_stmt.step();
-        data_stmt.reset();
+        stmt.bindInt(1, static_cast<int>(hash));
+        stmt.bindLongLong(2, song_id);
+        stmt.bindInt(3, static_cast<int>(time_offset));
+        stmt.step();
+        stmt.reset();
       }
     }
 
@@ -135,24 +131,57 @@ void AFS::searchForRecord(IAudioFile &audio_file, SQLiteDB &db)// NOLINT
   filtering(matrix);
   const Fingerprint record_fgs{ generateFingerprints(matrix, std::nullopt) };
 
-  const std::string select_values_sql = "SELECT value FROM fingerprint_data WHERE fingerprints = ?;";
+  const std::string select_sql = "SELECT song_id, time_offset FROM fingerprints WHERE hash = ?;";
 
   try {
     SQLiteDB::Transaction transaction(db);
-    SQLiteDB::Statement select_stmt(db, select_values_sql);
+    SQLiteDB::Statement stmt(db, select_sql);
+
+    std::unordered_map<int64_t, std::unordered_map<int, int>> song_time_delta_counts;
 
     for (const auto &pair : record_fgs) {
-      const auto address = pair.first;
+      const auto hash = pair.first;
+      const auto &query_couples = pair.second;
 
-      select_stmt.bindInt(1, static_cast<int>(address));
+      for (const auto query_couple : query_couples) {
+        const int query_time = static_cast<int>(query_couple & 0xFFFFFFFFU);
 
-      while (select_stmt.step() == SQLITE_ROW) {
-        const int64_t value = select_stmt.columnLongLong(0);
+        stmt.bindInt(1, static_cast<int>(hash));
 
-        std::cout << "Address: " << address << " has value: " << value << "\n";
+        while (stmt.step() == SQLITE_ROW) {
+          const int64_t song_id = stmt.columnLongLong(0);
+          const int db_time = stmt.columnInt(1);
+
+          const int time_delta = db_time - query_time;
+
+          song_time_delta_counts[song_id][time_delta]++;
+        }
+
+        stmt.reset();
       }
+    }
 
-      select_stmt.reset();
+    int64_t best_song_id = -1;
+    int max_cons_matches = 0;
+    int best_time_delta = 0;
+
+    for (const auto &[song_id, time_deltas] : song_time_delta_counts) {
+      for (const auto &[time_delta, count] : time_deltas) {
+        if (count > max_cons_matches) {
+          max_cons_matches = count;
+          best_song_id = song_id;
+          best_time_delta = time_delta;
+        }
+      }
+    }
+
+    if (best_song_id != -1) {
+      std::cout << "\n=== MATCH FOUND ===\n";
+      std::cout << "Song ID: " << best_song_id << "\n";
+      std::cout << "Consistent matches: " << max_cons_matches << "\n";
+      std::cout << "Time offset in song: " << best_time_delta << "ms\n";
+    } else {
+      std::cout << "\nNo match found.\n";
     }
 
     transaction.commit();

@@ -141,7 +141,10 @@ void runCLIMode(const std::string &directory_path)
   }
 
   for (const auto &entry : fs::directory_iterator(dir_path)) {
-    if (entry.is_regular_file()) { processAudioFile(entry.path().string()); }
+    if (entry.is_regular_file()) {
+      std::cout << "Processing: " << entry.path().string() << "\n";
+      processAudioFile(entry.path().string());
+    }
   }
 
   std::cout << "CLI mode finished. All supported files processed.\n";
